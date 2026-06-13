@@ -173,10 +173,12 @@ function startRename(
   };
 
   titleEl.addEventListener('keydown', (e) => {
+    e.stopPropagation();
     if (e.key === 'Enter') {
       e.preventDefault();
       commit();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       cancel();
     }
   });

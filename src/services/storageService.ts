@@ -4,14 +4,29 @@ const STORAGE_KEY = 'cr_settings';
 
 const DEFAULT_SETTINGS: StoredSettings = {
   viewMode: 'normal',
-  expandedFolderIds: [],
+  folderExpansionOverrides: {},
 };
 
 export class StorageService {
   async loadSettings(): Promise<StoredSettings> {
     try {
       const result = await chrome.storage.sync.get(STORAGE_KEY);
-      return { ...DEFAULT_SETTINGS, ...(result[STORAGE_KEY] ?? {}) };
+      const saved = result[STORAGE_KEY] ?? {};
+
+      let overrides: Record<string, 'collapsed' | 'expanded'> = {};
+      if (saved.folderExpansionOverrides && typeof saved.folderExpansionOverrides === 'object') {
+        overrides = saved.folderExpansionOverrides;
+      } else if (Array.isArray(saved.expandedFolderIds)) {
+        // migrate legacy format
+        for (const id of saved.expandedFolderIds as string[]) {
+          overrides[id] = 'expanded';
+        }
+      }
+
+      return {
+        viewMode: saved.viewMode ?? DEFAULT_SETTINGS.viewMode,
+        folderExpansionOverrides: overrides,
+      };
     } catch {
       return { ...DEFAULT_SETTINGS };
     }
@@ -30,7 +45,7 @@ export class StorageService {
     await this.saveSettings({ viewMode });
   }
 
-  async saveExpandedFolders(expandedFolderIds: string[]): Promise<void> {
-    await this.saveSettings({ expandedFolderIds });
+  async saveExpansionOverrides(overrides: Record<string, 'collapsed' | 'expanded'>): Promise<void> {
+    await this.saveSettings({ folderExpansionOverrides: overrides });
   }
 }

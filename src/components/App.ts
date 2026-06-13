@@ -38,12 +38,13 @@ export class App {
     ]);
 
     this.bookmarkTree = tree;
-    this.state.setExpandedFolders(settings.expandedFolderIds);
 
-    // Apply viewMode without triggering a notify (we set it directly before subscribing)
+    // Apply viewMode first (it clears overrides on the empty default state),
+    // then apply loaded overrides so they are not lost.
     if (settings.viewMode !== this.state.getState().viewMode) {
       this.state.setViewMode(settings.viewMode);
     }
+    this.state.setExpansionOverrides(settings.folderExpansionOverrides);
 
     this.buildLayout();
     this.render(this.state.getState());
@@ -54,15 +55,6 @@ export class App {
 
   private buildLayout(): void {
     this.root.innerHTML = '';
-
-    // Header
-    const header = document.createElement('header');
-    header.className = 'panel-header';
-    header.innerHTML = `
-      <span class="panel-logo" aria-hidden="true">${svgCollections()}</span>
-      <span class="panel-title">Collections Reborn</span>
-    `;
-    this.root.appendChild(header);
 
     // Search
     const searchBar = document.createElement('div');
@@ -110,7 +102,14 @@ export class App {
     normalBtn.setAttribute('aria-pressed', String(this.state.getState().viewMode === 'normal'));
     normalBtn.addEventListener('click', () => this.setMode('normal'));
 
-    modeToggle.append(compactBtn, normalBtn);
+    const fullBtn = document.createElement('button');
+    fullBtn.className = 'mode-btn';
+    fullBtn.id = 'btn-full';
+    fullBtn.textContent = 'Full';
+    fullBtn.setAttribute('aria-pressed', String(this.state.getState().viewMode === 'full'));
+    fullBtn.addEventListener('click', () => this.setMode('full'));
+
+    modeToggle.append(compactBtn, normalBtn, fullBtn);
 
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn--primary btn--sm';
@@ -136,7 +135,7 @@ export class App {
     const list = this.root.querySelector('#collections-list') as HTMLElement;
     if (!list) return;
 
-    const folders = this.buildFolderViewModels(state);
+    const folders = this.buildFolderViewModels();
     const filtered = this.filterFolders(folders, state.searchText);
 
     list.innerHTML = '';
@@ -148,14 +147,15 @@ export class App {
 
     for (const folder of filtered) {
       const section = createCollectionSection(folder, state.viewMode, {
-        onToggle: (id) => {
-          this.state.toggleFolder(id);
-          this.storageService.saveExpandedFolders(this.state.getState().expandedFolderIds);
+        onToggle: (id, itemCount) => {
+          this.state.toggleFolder(id, itemCount);
+          this.storageService.saveExpansionOverrides(this.state.getState().folderExpansionOverrides);
         },
         onOpen: (item) => this.openLink(item),
         onRename: (item, newTitle) => this.renameItem(item, newTitle),
         onDelete: (item) => this.deleteItem(item),
         onRenameFolder: (f, newTitle) => this.renameFolder(f, newTitle),
+        onAddToFolder: (folderId) => this.addCurrentTabToFolder(folderId),
       }, state.searchText);
       list.appendChild(section);
     }
@@ -164,15 +164,18 @@ export class App {
   private updateModeButtons(mode: ViewMode): void {
     const compactBtn = this.root.querySelector('#btn-compact');
     const normalBtn = this.root.querySelector('#btn-normal');
-    if (compactBtn && normalBtn) {
+    const fullBtn = this.root.querySelector('#btn-full');
+    if (compactBtn && normalBtn && fullBtn) {
       compactBtn.classList.toggle('mode-btn--active', mode === 'compact');
       compactBtn.setAttribute('aria-pressed', String(mode === 'compact'));
       normalBtn.classList.toggle('mode-btn--active', mode === 'normal');
       normalBtn.setAttribute('aria-pressed', String(mode === 'normal'));
+      fullBtn.classList.toggle('mode-btn--active', mode === 'full');
+      fullBtn.setAttribute('aria-pressed', String(mode === 'full'));
     }
   }
 
-  private buildFolderViewModels(state: CollectionViewState): FolderViewModel[] {
+  private buildFolderViewModels(): FolderViewModel[] {
     const root = this.bookmarkTree[0];
     if (!root?.children) return [];
 
@@ -181,7 +184,7 @@ export class App {
     for (const container of root.children) {
       for (const node of container.children ?? []) {
         if (!node.url) {
-          folders.push(this.nodeToFolderViewModel(node, state));
+          folders.push(this.nodeToFolderViewModel(node));
         }
       }
     }
@@ -189,19 +192,18 @@ export class App {
     return folders;
   }
 
-  private nodeToFolderViewModel(
-    node: chrome.bookmarks.BookmarkTreeNode,
-    state: CollectionViewState,
-  ): FolderViewModel {
+  private nodeToFolderViewModel(node: chrome.bookmarks.BookmarkTreeNode): FolderViewModel {
     const allItems = (node.children ?? [])
       .filter((c) => !!c.url)
       .map((c) => this.nodeToItemViewModel(c));
+
+    const expansionState = this.state.getFolderExpansionState(node.id, allItems.length);
 
     return {
       id: node.id,
       title: node.title,
       itemCount: allItems.length,
-      isExpanded: state.expandedFolderIds.includes(node.id),
+      expansionState,
       allItems,
     };
   }
@@ -234,10 +236,10 @@ export class App {
         );
 
         if (folderMatch) {
-          return { ...folder, isExpanded: true };
+          return { ...folder, expansionState: 'expanded' as const };
         }
         if (matchedItems.length > 0) {
-          return { ...folder, allItems: matchedItems, itemCount: matchedItems.length, isExpanded: true };
+          return { ...folder, allItems: matchedItems, itemCount: matchedItems.length, expansionState: 'expanded' as const };
         }
         return null;
       })
@@ -247,6 +249,7 @@ export class App {
   private setMode(mode: ViewMode): void {
     this.state.setViewMode(mode);
     this.storageService.saveViewMode(mode);
+    this.storageService.saveExpansionOverrides({});
   }
 
   private openLink(item: FavoriteItemViewModel): void {
@@ -270,12 +273,18 @@ export class App {
     await this.reloadTree();
   }
 
+  private async addCurrentTabToFolder(folderId: string): Promise<void> {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !tab?.title) return;
+    await this.bookmarksService.createBookmark(folderId, tab.title, tab.url);
+    await this.reloadTree();
+  }
+
   private async handleAddFavorite(): Promise<void> {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url || !tab?.title) return;
 
-    const state = this.state.getState();
-    const folders = this.buildFolderViewModels(state);
+    const folders = this.buildFolderViewModels();
 
     const result = await showAddFavoriteModal(tab.url, tab.title, folders);
     if (!result) return;
@@ -302,7 +311,6 @@ export class App {
 function buildSkeletonHTML(): string {
   return `
     <div class="skeleton-panel">
-      <div class="skeleton-header"></div>
       <div class="skeleton-search"></div>
       <div class="skeleton-sections">
         ${Array.from({ length: 4 }).map(() => `

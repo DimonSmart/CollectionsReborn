@@ -1,9 +1,10 @@
 import type { CollectionViewState, ViewMode } from './types.js';
+import { PREVIEW_LIMIT } from './types.js';
 
 type Listener = (state: CollectionViewState) => void;
 
 const DEFAULT_STATE: CollectionViewState = {
-  expandedFolderIds: [],
+  folderExpansionOverrides: {},
   selectedFolderId: undefined,
   searchText: '',
   viewMode: 'normal',
@@ -31,7 +32,7 @@ export class AppState {
 
   setViewMode(viewMode: ViewMode): void {
     if (this.state.viewMode === viewMode) return;
-    this.state = { ...this.state, viewMode };
+    this.state = { ...this.state, viewMode, folderExpansionOverrides: {} };
     this.notify();
   }
 
@@ -41,15 +42,25 @@ export class AppState {
     this.notify();
   }
 
-  toggleFolder(folderId: string): void {
-    const ids = this.state.expandedFolderIds;
-    const next = ids.includes(folderId) ? ids.filter((id) => id !== folderId) : [...ids, folderId];
-    this.state = { ...this.state, expandedFolderIds: next };
+  toggleFolder(folderId: string, itemCount: number): void {
+    const mode = this.state.viewMode;
+    const override = this.state.folderExpansionOverrides[folderId];
+    const current = computeEffectiveState(mode, itemCount, override);
+    const next = computeNextState(mode, itemCount, current);
+    const def = computeDefaultState(mode, itemCount);
+
+    const overrides = { ...this.state.folderExpansionOverrides };
+    if (next === def || next === 'preview') {
+      delete overrides[folderId];
+    } else {
+      overrides[folderId] = next;
+    }
+    this.state = { ...this.state, folderExpansionOverrides: overrides };
     this.notify();
   }
 
-  setExpandedFolders(ids: string[]): void {
-    this.state = { ...this.state, expandedFolderIds: ids };
+  setExpansionOverrides(overrides: Record<string, 'collapsed' | 'expanded'>): void {
+    this.state = { ...this.state, folderExpansionOverrides: overrides };
     this.notify();
   }
 
@@ -58,7 +69,35 @@ export class AppState {
     this.notify();
   }
 
-  isExpanded(folderId: string): boolean {
-    return this.state.expandedFolderIds.includes(folderId);
+  getFolderExpansionState(folderId: string, itemCount: number): 'collapsed' | 'preview' | 'expanded' {
+    const override = this.state.folderExpansionOverrides[folderId];
+    return computeEffectiveState(this.state.viewMode, itemCount, override);
   }
+}
+
+function computeDefaultState(mode: ViewMode, itemCount: number): 'collapsed' | 'preview' | 'expanded' {
+  if (mode === 'compact') return 'collapsed';
+  if (mode === 'full') return 'expanded';
+  return itemCount > PREVIEW_LIMIT ? 'preview' : 'expanded';
+}
+
+function computeEffectiveState(
+  mode: ViewMode,
+  itemCount: number,
+  override: 'collapsed' | 'expanded' | undefined,
+): 'collapsed' | 'preview' | 'expanded' {
+  if (override !== undefined) return override;
+  return computeDefaultState(mode, itemCount);
+}
+
+function computeNextState(
+  mode: ViewMode,
+  itemCount: number,
+  current: 'collapsed' | 'preview' | 'expanded',
+): 'collapsed' | 'preview' | 'expanded' {
+  if (current === 'expanded') return 'collapsed';
+  if (current === 'preview') return 'expanded';
+  // collapsed → preview (normal mode with >N items) or expanded otherwise
+  if (mode === 'normal' && itemCount > PREVIEW_LIMIT) return 'preview';
+  return 'expanded';
 }

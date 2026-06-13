@@ -1,7 +1,10 @@
-export type ViewMode = 'compact' | 'normal';
+export const PREVIEW_LIMIT = 4;
+
+export type ViewMode = 'compact' | 'normal' | 'full';
+export type FolderExpansionState = 'collapsed' | 'preview' | 'expanded';
 
 export interface CollectionViewState {
-  expandedFolderIds: string[];
+  folderExpansionOverrides: Record<string, 'collapsed' | 'expanded'>;
   selectedFolderId?: string;
   searchText: string;
   viewMode: ViewMode;
@@ -20,11 +23,11 @@ export interface FolderViewModel {
   id: string;
   title: string;
   itemCount: number;
-  isExpanded: boolean;
+  expansionState: FolderExpansionState;
   allItems: FavoriteItemViewModel[];
 }
 
 export interface StoredSettings {
   viewMode: ViewMode;
-  expandedFolderIds: string[];
+  folderExpansionOverrides: Record<string, 'collapsed' | 'expanded'>;
 }

@@ -307,6 +307,17 @@ body {
   opacity: 1;
 }
 
+/* Compact mode — tighter folder header row */
+[data-mode="compact"] .collection-header {
+  padding: 3px 8px;
+  min-height: 26px;
+  gap: 4px;
+}
+
+[data-mode="compact"] .collection-section {
+  margin-bottom: 4px;
+}
+
 /* ----- Collection Body ------------------------------------- */
 .collection-body {
   padding: 2px 0;
