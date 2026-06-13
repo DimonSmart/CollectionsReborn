@@ -1,0 +1,256 @@
+import { createFolderView } from '../components/FolderView.js';
+import { showMoveToDialog } from '../components/MoveToDialog.js';
+import { showAddFavoriteModal } from '../components/AddFavoriteModal.js';
+import type { BookmarkEntryViewModel, FolderChoice, FolderViewCallbacks } from '../types.js';
+
+const app = document.getElementById('app');
+const scenario = new URLSearchParams(location.search).get('scenario') ?? 'main';
+
+if (app) {
+  renderScenario(app, scenario);
+}
+
+function renderScenario(container: HTMLElement, name: string): void {
+  container.innerHTML = '';
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  container.appendChild(panel);
+
+  panel.appendChild(buildTopBar(name));
+
+  const viewContainer = document.createElement('main');
+  viewContainer.className = 'folder-view-container';
+  panel.appendChild(viewContainer);
+
+  const callbacks: FolderViewCallbacks = {
+    onNavigateToFolder: () => undefined,
+    onNavigateBack: () => undefined,
+    onOpenLink: () => undefined,
+    onEditLink: () => undefined,
+    onDeleteItem: () => undefined,
+    onRenameFolder: () => undefined,
+    onMoveItem: () => undefined,
+    onReorder: () => undefined,
+    onSortFolder: () => undefined,
+  };
+
+  if (name === 'folder') {
+    viewContainer.appendChild(createFolderView(
+      { id: '10', title: 'Product Research' },
+      productResearchEntries(),
+      true,
+      false,
+      true,
+      true,
+      callbacks,
+    ));
+    return;
+  }
+
+  if (name === 'reorder') {
+    const view = createFolderView(
+      { id: '20', title: 'Launch Reading List' },
+      launchEntries(),
+      true,
+      false,
+      true,
+      true,
+      callbacks,
+    );
+    viewContainer.appendChild(view);
+    view.querySelector('[data-id="203"]')?.classList.add('bookmark-row--dragging');
+    return;
+  }
+
+  if (name === 'move') {
+    viewContainer.appendChild(createFolderView(
+      { id: '10', title: 'Product Research' },
+      productResearchEntries(),
+      true,
+      false,
+      true,
+      true,
+      callbacks,
+    ));
+    window.setTimeout(() => {
+      void showMoveToDialog(productResearchEntries()[2], folderChoices(), demoTree());
+    }, 50);
+    return;
+  }
+
+  if (name === 'add') {
+    viewContainer.appendChild(createFolderView(
+      { id: '30', title: 'Design References' },
+      designEntries(),
+      true,
+      false,
+      true,
+      true,
+      callbacks,
+    ));
+    window.setTimeout(() => {
+      void showAddFavoriteModal(
+        'https://web.dev/articles/browser-side-panels',
+        'Designing useful browser side panels',
+        folderChoices(),
+        '30',
+      );
+      window.setTimeout(() => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }, 180);
+    }, 50);
+    return;
+  }
+
+  viewContainer.appendChild(createFolderView(
+    { id: '1', title: 'Bookmarks Bar' },
+    mainEntries(),
+    false,
+    false,
+    true,
+    true,
+    callbacks,
+  ));
+}
+
+function buildTopBar(name: string): HTMLElement {
+  const topBar = document.createElement('div');
+  topBar.className = 'top-bar';
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'search';
+  searchInput.className = 'search-input';
+  searchInput.placeholder = 'Search in folder...';
+  searchInput.setAttribute('aria-label', 'Search in current folder');
+  if (name === 'folder') {
+    searchInput.value = 'docs';
+  }
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-icon btn-icon--primary';
+  addBtn.setAttribute('aria-label', 'Add current page to favorites');
+  addBtn.title = 'Add current page to favorites';
+  addBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+
+  topBar.append(searchInput, addBtn);
+  return topBar;
+}
+
+function mainEntries(): BookmarkEntryViewModel[] {
+  return [
+    folder('10', '1', 0, 'Product Research', 8),
+    folder('20', '1', 1, 'Launch Reading List', 6),
+    folder('30', '1', 2, 'Design References', 12),
+    link('101', '1', 3, 'Chrome Extensions documentation', 'https://developer.chrome.com/docs/extensions/', 'developer.chrome.com'),
+    link('102', '1', 4, 'Microsoft Edge extensions', 'https://learn.microsoft.com/microsoft-edge/extensions-chromium/', 'learn.microsoft.com'),
+    link('103', '1', 5, 'Web platform dashboard', 'https://webstatus.dev/', 'webstatus.dev'),
+    folder('40', '1', 6, 'Archive', 17),
+    link('104', '1', 7, 'Accessibility patterns', 'https://www.w3.org/WAI/ARIA/apg/', 'w3.org'),
+  ];
+}
+
+function productResearchEntries(): BookmarkEntryViewModel[] {
+  return [
+    folder('21', '10', 0, 'Side panel APIs', 4),
+    folder('22', '10', 1, 'Store requirements', 5),
+    link('201', '10', 2, 'Chrome Web Store images', 'https://developer.chrome.com/docs/webstore/images', 'developer.chrome.com'),
+    link('202', '10', 3, 'Edge add-ons publishing guide', 'https://learn.microsoft.com/microsoft-edge/extensions-chromium/publish/publish-extension', 'learn.microsoft.com'),
+    link('203', '10', 4, 'Bookmark manager UX notes', 'https://example.com/bookmark-manager-ux', 'example.com'),
+    link('204', '10', 5, 'Manifest V3 overview', 'https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3', 'developer.chrome.com'),
+  ];
+}
+
+function launchEntries(): BookmarkEntryViewModel[] {
+  return [
+    link('201', '20', 0, 'Prepare privacy policy', 'https://example.com/privacy-policy', 'example.com'),
+    link('202', '20', 1, 'Write permission justifications', 'https://example.com/permissions', 'example.com'),
+    link('203', '20', 2, 'Capture store screenshots', 'https://example.com/screenshots', 'example.com'),
+    folder('204', '20', 3, 'Review queue', 3),
+    link('205', '20', 4, 'Certification testing notes', 'https://example.com/certification', 'example.com'),
+  ];
+}
+
+function designEntries(): BookmarkEntryViewModel[] {
+  return [
+    folder('31', '30', 0, 'Navigation', 3),
+    link('301', '30', 1, 'Side panel interaction patterns', 'https://web.dev/patterns', 'web.dev'),
+    link('302', '30', 2, 'Compact list design', 'https://example.com/compact-list-design', 'example.com'),
+    link('303', '30', 3, 'Bookmark organization examples', 'https://example.com/bookmark-organization', 'example.com'),
+  ];
+}
+
+function folder(id: string, parentId: string, index: number, title: string, childCount: number): BookmarkEntryViewModel {
+  return { type: 'folder', id, parentId, index, title, childCount };
+}
+
+function link(
+  id: string,
+  parentId: string,
+  index: number,
+  title: string,
+  url: string,
+  domain: string,
+): BookmarkEntryViewModel {
+  return {
+    type: 'link',
+    id,
+    parentId,
+    index,
+    title,
+    url,
+    domain,
+    faviconUrl: faviconDataUrl(domain),
+  };
+}
+
+function faviconDataUrl(domain: string): string {
+  const letter = domain.charAt(0).toUpperCase();
+  const hue = Math.abs([...domain].reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" rx="4" fill="hsl(${hue} 72% 46%)"/><text x="8" y="11" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700" fill="white">${letter}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function folderChoices(): FolderChoice[] {
+  return [
+    { id: '1', title: 'Bookmarks Bar', path: 'Bookmarks Bar', depth: 0 },
+    { id: '10', title: 'Product Research', path: 'Bookmarks Bar / Product Research', depth: 1 },
+    { id: '21', title: 'Side panel APIs', path: 'Bookmarks Bar / Product Research / Side panel APIs', depth: 2 },
+    { id: '22', title: 'Store requirements', path: 'Bookmarks Bar / Product Research / Store requirements', depth: 2 },
+    { id: '20', title: 'Launch Reading List', path: 'Bookmarks Bar / Launch Reading List', depth: 1 },
+    { id: '30', title: 'Design References', path: 'Bookmarks Bar / Design References', depth: 1 },
+    { id: '40', title: 'Archive', path: 'Bookmarks Bar / Archive', depth: 1 },
+  ];
+}
+
+function demoTree(): chrome.bookmarks.BookmarkTreeNode[] {
+  return [
+    {
+      id: '0',
+      title: '',
+      children: [
+        {
+          id: '1',
+          parentId: '0',
+          title: 'Bookmarks Bar',
+          children: [
+            {
+              id: '10',
+              parentId: '1',
+              title: 'Product Research',
+              children: [
+                { id: '21', parentId: '10', title: 'Side panel APIs', children: [] },
+                { id: '22', parentId: '10', title: 'Store requirements', children: [] },
+                { id: '203', parentId: '10', title: 'Bookmark manager UX notes', url: 'https://example.com/bookmark-manager-ux' },
+              ],
+            },
+            { id: '20', parentId: '1', title: 'Launch Reading List', children: [] },
+            { id: '30', parentId: '1', title: 'Design References', children: [] },
+            { id: '40', parentId: '1', title: 'Archive', children: [] },
+          ],
+        },
+      ],
+    },
+  ];
+}

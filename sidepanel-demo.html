@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collections Reborn Store Screenshot Demo</title>
+  <link rel="stylesheet" href="/styles/sidepanel.css" />
+  <style>
+    body {
+      width: 1280px;
+      height: 800px;
+      overflow: hidden;
+      background: #eef2f7;
+    }
+
+    .store-demo {
+      width: 1280px;
+      height: 800px;
+      display: grid;
+      grid-template-columns: 392px 1fr;
+      background:
+        linear-gradient(120deg, rgba(79,70,229,0.12), rgba(20,184,166,0.10)),
+        #f8fafc;
+    }
+
+    .store-demo__panel-shell {
+      width: 392px;
+      height: 800px;
+      background: #ffffff;
+      border-right: 1px solid #d8dee8;
+      box-shadow: 10px 0 30px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .store-demo__titlebar {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border-bottom: 1px solid #eef0f4;
+      font-size: 14px;
+      font-weight: 650;
+      color: #111827;
+      flex-shrink: 0;
+    }
+
+    .store-demo__titlebar img {
+      width: 22px;
+      height: 22px;
+    }
+
+    .store-demo__app {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .store-demo__app .panel {
+      height: 756px;
+    }
+
+    .store-demo .drag-handle,
+    .store-demo .row-menu-btn {
+      opacity: 1;
+    }
+
+    .store-demo__canvas {
+      position: relative;
+      padding: 56px 64px;
+      color: #1f2937;
+      overflow: hidden;
+    }
+
+    .store-demo__headline {
+      width: 560px;
+      font-size: 40px;
+      line-height: 1.15;
+      font-weight: 720;
+      letter-spacing: 0;
+      margin-top: 42px;
+      color: #111827;
+    }
+
+    .store-demo__subhead {
+      width: 520px;
+      margin-top: 18px;
+      font-size: 18px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+
+    .store-demo__chips {
+      display: flex;
+      gap: 10px;
+      margin-top: 26px;
+      flex-wrap: wrap;
+      width: 520px;
+    }
+
+    .store-demo__chip {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #dbe3ee;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .store-demo__preview-stack {
+      position: absolute;
+      right: 70px;
+      bottom: 72px;
+      width: 390px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .store-demo__preview-card {
+      height: 78px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid #dbe3ee;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.10);
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .store-demo__preview-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: #eef2ff;
+      border: 1px solid #dbe1ff;
+    }
+
+    .store-demo__preview-lines {
+      display: grid;
+      gap: 8px;
+    }
+
+    .store-demo__preview-line {
+      height: 9px;
+      border-radius: 99px;
+      background: #cbd5e1;
+    }
+
+    .store-demo__preview-line:last-child {
+      width: 62%;
+      background: #e2e8f0;
+    }
+
+    .store-demo .bookmark-row--dragging {
+      transform: translateX(10px);
+    }
+  </style>
+</head>
+<body>
+  <div class="store-demo">
+    <aside class="store-demo__panel-shell">
+      <div class="store-demo__titlebar">
+        <img src="/icons/icon32.png" alt="" />
+        <span>Collections Reborn</span>
+      </div>
+      <div id="app" class="store-demo__app"></div>
+    </aside>
+    <section class="store-demo__canvas" aria-hidden="true">
+      <div class="store-demo__headline">A focused side panel for browser bookmarks</div>
+      <div class="store-demo__subhead">Browse folders, move links, reorder rows, and add the current page while keeping browser bookmarks as the source of truth.</div>
+      <div class="store-demo__chips">
+        <span class="store-demo__chip">Bookmarks API</span>
+        <span class="store-demo__chip">Side panel</span>
+        <span class="store-demo__chip">No backend</span>
+      </div>
+      <div class="store-demo__preview-stack">
+        <div class="store-demo__preview-card"><div class="store-demo__preview-icon"></div><div class="store-demo__preview-lines"><div class="store-demo__preview-line"></div><div class="store-demo__preview-line"></div></div></div>
+        <div class="store-demo__preview-card"><div class="store-demo__preview-icon"></div><div class="store-demo__preview-lines"><div class="store-demo__preview-line"></div><div class="store-demo__preview-line"></div></div></div>
+      </div>
+    </section>
+  </div>
+  <script type="module" src="/src/demo/storeScreenshots.ts"></script>
+</body>
+</html>

@@ -93,6 +93,24 @@ No host permissions (`http://*/*`, `https://*/*`) are requested.
 
 ---
 
+## Publishing
+
+See:
+
+- `docs/store/STORE_LISTING.md`
+- `docs/store/PUBLISHING_CHECKLIST.md`
+- `PRIVACY.md`
+
+To create a production package:
+
+```bash
+npm run package
+```
+
+The package is generated in `release/`.
+
+---
+
 ## Features
 
 ### One-level folder navigation
@@ -122,3 +140,9 @@ The search box filters the current folder's children by title, URL, or domain. D
 ## Not in MVP
 
 Cloud sync, tags, notes, screenshots, virtual collections, drag into invisible folders, keyboard reorder shortcuts, Firefox/Safari support.
+
+---
+
+## Disclaimer
+
+Collections Reborn is an independent browser extension. It is not affiliated with, endorsed by, or produced by Microsoft, Google, or any browser vendor.

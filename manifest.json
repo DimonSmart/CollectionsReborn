@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Collections Reborn",
   "version": "0.1.0",
-  "description": "A beautiful collections-style side panel for browser favorites.",
+  "description": "A collections-style side panel for organizing browser bookmarks.",
+  "minimum_chrome_version": "114",
   "permissions": [
     "bookmarks",
     "sidePanel",

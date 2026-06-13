@@ -8,11 +8,16 @@
     "preview": "vite build && echo \"Load dist/ as unpacked extension\"",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "package": "npm run check && npm test && node scripts/package-extension.mjs",
+    "package:chrome": "npm run package",
+    "package:edge": "npm run package",
+    "assets:store": "node scripts/create-store-assets.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
     "@types/sortablejs": "^1.15.9",
+    "archiver": "^7.0.1",
     "typescript": "^5.4.5",
     "vite": "^5.2.11",
     "vitest": "^1.6.1"
