@@ -1,10 +1,11 @@
-import type { BookmarkEntryViewModel, FolderChoice } from '../types.js';
+import type { BookmarkEntryViewModel, FolderChoice, MoveToResult } from '../types.js';
+import { createModalShell } from './ModalShell.js';
 
 export function showMoveToDialog(
   item: BookmarkEntryViewModel,
   allFolders: FolderChoice[],
   fullTree: chrome.bookmarks.BookmarkTreeNode[],
-): Promise<string | null> {
+): Promise<MoveToResult | null> {
   const disabledIds = buildDisabledSet(item, fullTree);
   const choices = allFolders.map((f) => ({
     ...f,
@@ -13,14 +14,16 @@ export function showMoveToDialog(
   }));
 
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    const close = (result: MoveToResult | null) => {
+      shell.close();
+      resolve(result);
+    };
 
-    const dialog = document.createElement('div');
-    dialog.className = 'modal-dialog modal-dialog--move';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-label', 'Move to folder');
+    const shell = createModalShell({
+      dialogClass: 'modal-dialog--move',
+      ariaLabel: 'Move to folder',
+      onClose: () => close(null),
+    });
 
     const heading = document.createElement('div');
     heading.className = 'modal-heading';
@@ -65,12 +68,7 @@ export function showMoveToDialog(
 
         const labelEl = document.createElement('span');
         labelEl.className = 'move-folder-label';
-
-        if (q) {
-          labelEl.textContent = choice.path;
-        } else {
-          labelEl.textContent = choice.title;
-        }
+        labelEl.textContent = q ? choice.path : choice.title;
 
         if (choice.isCurrent) {
           const badge = document.createElement('span');
@@ -103,9 +101,32 @@ export function showMoveToDialog(
       }
     };
 
-    searchInput.addEventListener('input', () => {
-      renderList(searchInput.value);
-    });
+    searchInput.addEventListener('input', () => renderList(searchInput.value));
+
+    // Placement selector
+    const placementRow = document.createElement('div');
+    placementRow.className = 'move-placement';
+
+    const placementLabel = document.createElement('label');
+    placementLabel.className = 'modal-label';
+    placementLabel.htmlFor = 'move-placement-select';
+    placementLabel.textContent = 'Position';
+
+    const placementSelect = document.createElement('select');
+    placementSelect.className = 'modal-select';
+    placementSelect.id = 'move-placement-select';
+
+    const optEnd = document.createElement('option');
+    optEnd.value = 'end';
+    optEnd.textContent = 'At the end';
+    optEnd.selected = true;
+
+    const optBeginning = document.createElement('option');
+    optBeginning.value = 'beginning';
+    optBeginning.textContent = 'At the beginning';
+
+    placementSelect.append(optEnd, optBeginning);
+    placementRow.append(placementLabel, placementSelect);
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
@@ -121,35 +142,22 @@ export function showMoveToDialog(
 
     actions.append(cancelBtn, moveBtn);
 
-    dialog.append(heading, searchInput, folderList, actions);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
+    shell.dialog.append(heading, searchInput, folderList, placementRow, actions);
 
     renderList('');
-
-    requestAnimationFrame(() => {
-      overlay.classList.add('modal-overlay--visible');
-      searchInput.focus();
-    });
-
-    const close = (result: string | null) => {
-      overlay.classList.remove('modal-overlay--visible');
-      setTimeout(() => overlay.remove(), 150);
-      resolve(result);
-    };
+    shell.open(searchInput);
 
     cancelBtn.addEventListener('click', () => close(null));
     moveBtn.addEventListener('click', () => {
-      if (selectedId) close(selectedId);
+      if (selectedId) {
+        close({ folderId: selectedId, placement: placementSelect.value as 'beginning' | 'end' });
+      }
     });
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
-    });
-
-    dialog.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') close(null);
-      if (e.key === 'Enter' && !moveBtn.disabled) close(selectedId);
+    shell.dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !moveBtn.disabled && selectedId) {
+        close({ folderId: selectedId, placement: placementSelect.value as 'beginning' | 'end' });
+      }
     });
   });
 }
@@ -160,11 +168,9 @@ function buildDisabledSet(
 ): Set<string> {
   const disabled = new Set<string>();
 
-  // Always disable the item's current parent (already there)
   disabled.add(item.parentId);
 
   if (item.type === 'folder') {
-    // Disable the folder itself and all its descendants
     const collectSubtree = (nodes: chrome.bookmarks.BookmarkTreeNode[]) => {
       for (const n of nodes) {
         if (!n.url) {
@@ -174,7 +180,7 @@ function buildDisabledSet(
       }
     };
 
-    const findAndCollect = (nodes: chrome.bookmarks.BookmarkTreeNode[]) => {
+    const findAndCollect = (nodes: chrome.bookmarks.BookmarkTreeNode[]): boolean => {
       for (const n of nodes) {
         if (n.id === item.id) {
           disabled.add(n.id);

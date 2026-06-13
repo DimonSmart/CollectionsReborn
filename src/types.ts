@@ -19,6 +19,13 @@ export interface LinkEntryViewModel extends BaseEntryViewModel {
 
 export type BookmarkEntryViewModel = FolderEntryViewModel | LinkEntryViewModel;
 
+export type SortAction =
+  | 'folders-first'
+  | 'links-first'
+  | 'title-asc'
+  | 'title-desc'
+  | 'domain-asc';
+
 export interface FolderViewCallbacks {
   onNavigateToFolder: (folderId: string) => void;
   onNavigateBack: () => void;
@@ -28,6 +35,7 @@ export interface FolderViewCallbacks {
   onRenameFolder: (item: FolderEntryViewModel) => void;
   onMoveItem: (item: BookmarkEntryViewModel) => void;
   onReorder: (itemId: string, newIndex: number) => void;
+  onSortFolder: (action: SortAction) => void;
 }
 
 export interface StoredSettings {
@@ -39,4 +47,9 @@ export interface FolderChoice {
   title: string;
   path: string;
   depth: number;
+}
+
+export interface MoveToResult {
+  folderId: string;
+  placement: 'beginning' | 'end';
 }

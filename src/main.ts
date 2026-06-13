@@ -2,6 +2,8 @@ import { App } from './components/App.js';
 import { BookmarksService } from './services/bookmarksService.js';
 import { FaviconService } from './services/faviconService.js';
 import { StorageService } from './services/storageService.js';
+import { BookmarkOperationsService } from './services/bookmarkOperationsService.js';
+import { BrowserTabsService } from './services/browserTabsService.js';
 
 async function boot(): Promise<void> {
   const container = document.getElementById('app');
@@ -10,8 +12,17 @@ async function boot(): Promise<void> {
   const bookmarksService = new BookmarksService();
   const faviconService = new FaviconService();
   const storageService = new StorageService();
+  const operationsService = new BookmarkOperationsService(bookmarksService);
+  const tabsService = new BrowserTabsService();
 
-  const app = new App(container, bookmarksService, faviconService, storageService);
+  const app = new App(
+    container,
+    bookmarksService,
+    faviconService,
+    storageService,
+    operationsService,
+    tabsService,
+  );
 
   try {
     await app.init();

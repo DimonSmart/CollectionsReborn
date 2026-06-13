@@ -1,4 +1,5 @@
 import type { FolderChoice } from '../types.js';
+import { createModalShell } from './ModalShell.js';
 
 export interface AddFavoriteResult {
   folderId: string;
@@ -13,14 +14,12 @@ export function showAddFavoriteModal(
   defaultFolderId?: string,
 ): Promise<AddFavoriteResult | null> {
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    const close = (result: AddFavoriteResult | null) => {
+      shell.close();
+      resolve(result);
+    };
 
-    const dialog = document.createElement('div');
-    dialog.className = 'modal-dialog modal-dialog--add';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-label', 'Add to favorites');
+    const shell = createModalShell({ ariaLabel: 'Add to favorites', onClose: () => close(null) });
 
     const heading = document.createElement('h3');
     heading.className = 'modal-heading';
@@ -28,20 +27,24 @@ export function showAddFavoriteModal(
 
     const titleLabel = document.createElement('label');
     titleLabel.className = 'modal-label';
+    titleLabel.htmlFor = 'add-fav-title';
     titleLabel.textContent = 'Title';
 
     const titleInput = document.createElement('input');
     titleInput.className = 'modal-input';
     titleInput.type = 'text';
+    titleInput.id = 'add-fav-title';
     titleInput.value = title;
     titleInput.setAttribute('aria-label', 'Bookmark title');
 
     const folderLabel = document.createElement('label');
     folderLabel.className = 'modal-label';
+    folderLabel.htmlFor = 'add-fav-folder';
     folderLabel.textContent = 'Folder';
 
     const select = document.createElement('select');
     select.className = 'modal-select';
+    select.id = 'add-fav-folder';
     select.setAttribute('aria-label', 'Select folder');
 
     for (const folder of folders) {
@@ -69,27 +72,11 @@ export function showAddFavoriteModal(
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'btn btn--secondary';
     cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => close(null));
 
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn--primary';
     addBtn.textContent = 'Add';
-
-    actions.append(cancelBtn, addBtn);
-    dialog.append(heading, titleLabel, titleInput, folderLabel, select, actions);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    requestAnimationFrame(() => {
-      overlay.classList.add('modal-overlay--visible');
-      titleInput.focus();
-      titleInput.select();
-    });
-
-    const close = (result: AddFavoriteResult | null) => {
-      overlay.classList.remove('modal-overlay--visible');
-      setTimeout(() => overlay.remove(), 150);
-      resolve(result);
-    };
 
     const tryAdd = () => {
       const t = titleInput.value.trim();
@@ -98,16 +85,17 @@ export function showAddFavoriteModal(
       close({ folderId, title: t, url });
     };
 
-    cancelBtn.addEventListener('click', () => close(null));
     addBtn.addEventListener('click', tryAdd);
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
+    titleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        tryAdd();
+      }
     });
 
-    dialog.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') close(null);
-      if (e.key === 'Enter' && document.activeElement !== cancelBtn) tryAdd();
-    });
+    actions.append(cancelBtn, addBtn);
+    shell.dialog.append(heading, titleLabel, titleInput, folderLabel, select, actions);
+    shell.open(titleInput);
   });
 }

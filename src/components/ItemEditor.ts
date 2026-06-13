@@ -1,7 +1,13 @@
+import { createModalShell } from './ModalShell.js';
+
 export async function showFolderEditor(currentName: string): Promise<string | null> {
   return new Promise((resolve) => {
-    const overlay = buildOverlay();
-    const dialog = buildDialog();
+    const close = (result: string | null) => {
+      shell.close();
+      resolve(result);
+    };
+
+    const shell = createModalShell({ ariaLabel: 'Edit folder name', onClose: () => close(null) });
 
     const heading = el('div', 'modal-heading', 'Edit folder name');
     const label = labelEl('editor-folder-name', 'Folder name');
@@ -20,35 +26,15 @@ export async function showFolderEditor(currentName: string): Promise<string | nu
       () => close(null),
     );
 
-    dialog.append(heading, label, input, errorEl, actions);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    requestAnimationFrame(() => overlay.classList.add('modal-overlay--visible'));
-    setTimeout(() => {
-      input.focus();
-      input.select();
-    }, 50);
-
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         (actions.querySelector('.btn--primary') as HTMLButtonElement)?.click();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        close(null);
       }
     });
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
-    });
-
-    function close(result: string | null): void {
-      overlay.classList.remove('modal-overlay--visible');
-      setTimeout(() => overlay.remove(), 150);
-      resolve(result);
-    }
+    shell.dialog.append(heading, label, input, errorEl, actions);
+    shell.open(input);
   });
 }
 
@@ -57,8 +43,12 @@ export async function showLinkEditor(
   currentUrl: string,
 ): Promise<{ title: string; url: string } | null> {
   return new Promise((resolve) => {
-    const overlay = buildOverlay();
-    const dialog = buildDialog();
+    const close = (result: { title: string; url: string } | null) => {
+      shell.close();
+      resolve(result);
+    };
+
+    const shell = createModalShell({ ariaLabel: 'Edit link', onClose: () => close(null) });
 
     const heading = el('div', 'modal-heading', 'Edit link');
 
@@ -101,37 +91,17 @@ export async function showLinkEditor(
       () => close(null),
     );
 
-    dialog.append(heading, titleLabel, titleInput, titleError, urlLabel, urlInput, urlError, actions);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    requestAnimationFrame(() => overlay.classList.add('modal-overlay--visible'));
-    setTimeout(() => {
-      titleInput.focus();
-      titleInput.select();
-    }, 50);
-
     [titleInput, urlInput].forEach((inp) => {
       inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
           (actions.querySelector('.btn--primary') as HTMLButtonElement)?.click();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          close(null);
         }
       });
     });
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
-    });
-
-    function close(result: { title: string; url: string } | null): void {
-      overlay.classList.remove('modal-overlay--visible');
-      setTimeout(() => overlay.remove(), 150);
-      resolve(result);
-    }
+    shell.dialog.append(heading, titleLabel, titleInput, titleError, urlLabel, urlInput, urlError, actions);
+    shell.open(titleInput);
   });
 }
 
@@ -140,18 +110,6 @@ function normalizeUrl(raw: string): string {
   if (!s) return '';
   if (/^https?:\/\//i.test(s)) return s;
   return 'https://' + s;
-}
-
-function buildOverlay(): HTMLElement {
-  const o = document.createElement('div');
-  o.className = 'modal-overlay';
-  return o;
-}
-
-function buildDialog(): HTMLElement {
-  const d = document.createElement('div');
-  d.className = 'modal-dialog';
-  return d;
 }
 
 function el(tag: string, className: string, text: string): HTMLElement {

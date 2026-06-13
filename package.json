@@ -5,13 +5,17 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "preview": "vite build && echo \"Load dist/ as unpacked extension\""
+    "preview": "vite build && echo \"Load dist/ as unpacked extension\"",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
     "@types/sortablejs": "^1.15.9",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11"
+    "vite": "^5.2.11",
+    "vitest": "^1.6.1"
   },
   "dependencies": {
     "sortablejs": "^1.15.7"

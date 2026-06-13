@@ -2,21 +2,33 @@ import type {
   BookmarkEntryViewModel,
   FolderEntryViewModel,
   LinkEntryViewModel,
-  FolderChoice,
+  SortAction,
 } from '../types.js';
 import type { BookmarksService } from '../services/bookmarksService.js';
 import type { FaviconService } from '../services/faviconService.js';
 import type { StorageService } from '../services/storageService.js';
+import type { BookmarkOperationsService } from '../services/bookmarkOperationsService.js';
+import type { BrowserTabsService } from '../services/browserTabsService.js';
 import { createFolderView } from './FolderView.js';
 import { showConfirm, showInfo } from './ConfirmModal.js';
 import { showLinkEditor, showFolderEditor } from './ItemEditor.js';
 import { showMoveToDialog } from './MoveToDialog.js';
 import { showAddFavoriteModal } from './AddFavoriteModal.js';
+import {
+  findNodeById,
+  getVirtualRootId,
+  getRootFolders,
+  resolveStartupFolder,
+  canNavigateBack,
+  buildFolderEntries,
+  filterEntries,
+  collectAllFolders,
+} from '../domain/bookmarkTree.js';
 
 export class App {
   private root: HTMLElement;
   private bookmarkTree: chrome.bookmarks.BookmarkTreeNode[] = [];
-  private currentFolderId: string = '1';
+  private currentFolderId: string = '0';
   private searchText: string = '';
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -25,6 +37,8 @@ export class App {
     private readonly bookmarksService: BookmarksService,
     private readonly faviconService: FaviconService,
     private readonly storageService: StorageService,
+    private readonly operationsService: BookmarkOperationsService,
+    private readonly tabsService: BrowserTabsService,
   ) {
     this.root = document.createElement('div');
     this.root.className = 'panel';
@@ -40,18 +54,11 @@ export class App {
     ]);
 
     this.bookmarkTree = tree;
-    this.currentFolderId = this.resolveStartupFolder(settings.currentFolderId);
+    this.currentFolderId = resolveStartupFolder(tree, settings.currentFolderId);
 
     this.buildLayout();
     this.render();
     this.attachBookmarkListeners();
-  }
-
-  private resolveStartupFolder(savedId?: string): string {
-    if (savedId && this.findNodeById(savedId)) return savedId;
-    const root = this.bookmarkTree[0];
-    if (root?.children?.length) return root.children[0].id;
-    return '1';
   }
 
   private buildLayout(): void {
@@ -100,18 +107,15 @@ export class App {
     const container = this.root.querySelector('#folder-view-container') as HTMLElement | null;
     if (!container) return;
 
-    const currentNode = this.findNodeById(this.currentFolderId);
+    let currentNode = findNodeById(this.bookmarkTree, this.currentFolderId);
     if (!currentNode) {
-      // Folder was deleted externally — fall back to startup folder
-      this.currentFolderId = this.resolveStartupFolder();
-      const fallback = this.findNodeById(this.currentFolderId);
-      if (!fallback) {
+      this.currentFolderId = resolveStartupFolder(this.bookmarkTree);
+      currentNode = findNodeById(this.bookmarkTree, this.currentFolderId);
+      if (!currentNode) {
         container.innerHTML = '';
         container.appendChild(buildEmptyState(''));
         return;
       }
-      this.renderFolder(container, fallback);
-      return;
     }
 
     this.renderFolder(container, currentNode);
@@ -121,25 +125,31 @@ export class App {
     container: HTMLElement,
     node: chrome.bookmarks.BookmarkTreeNode,
   ): void {
-    const entries = this.buildEntries(node);
-    const filtered = this.filterEntries(entries, this.searchText);
-    const canGoBack = this.canGoBack();
+    const entries = buildFolderEntries(node, this.faviconService);
+    const filtered = filterEntries(entries, this.searchText);
     const isSearching = this.searchText.trim().length > 0;
+    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
+    const canGoBack = canNavigateBack(this.bookmarkTree, this.currentFolderId);
+    const canSort = !isSearching && !isVirtualRoot && filtered.length > 1;
+    const canReorder = !isSearching && !isVirtualRoot;
 
     const view = createFolderView(
       { id: node.id, title: this.displayTitle(node) },
       filtered,
       canGoBack,
       isSearching,
+      canSort,
+      canReorder,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
         onNavigateBack: () => this.navigateBack(),
-        onOpenLink: (url) => chrome.tabs.create({ url }),
+        onOpenLink: (url) => this.tabsService.openUrl(url),
         onEditLink: (item) => this.editLink(item),
         onDeleteItem: (item) => this.deleteItem(item),
         onRenameFolder: (item) => this.renameFolder(item),
         onMoveItem: (item) => this.moveItem(item),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
+        onSortFolder: (action) => this.sortFolder(action),
       },
     );
 
@@ -148,74 +158,12 @@ export class App {
   }
 
   private displayTitle(node: chrome.bookmarks.BookmarkTreeNode): string {
+    if (node.id === getVirtualRootId(this.bookmarkTree)) return 'All bookmarks';
     if (node.title) return node.title;
-    // Fallback labels for known system container IDs
     if (node.id === '1') return 'Bookmarks Bar';
     if (node.id === '2') return 'Other Bookmarks';
     if (node.id === '3') return 'Mobile Bookmarks';
     return 'Bookmarks';
-  }
-
-  private buildEntries(node: chrome.bookmarks.BookmarkTreeNode): BookmarkEntryViewModel[] {
-    return (node.children ?? []).map((child) => {
-      if (child.url) {
-        const domain = this.faviconService.getDomain(child.url);
-        return {
-          type: 'link' as const,
-          id: child.id,
-          parentId: child.parentId ?? '',
-          index: child.index ?? 0,
-          title: child.title || domain || child.url,
-          url: child.url,
-          domain,
-          faviconUrl: this.faviconService.getFaviconUrl(child.url, 16),
-        };
-      } else {
-        return {
-          type: 'folder' as const,
-          id: child.id,
-          parentId: child.parentId ?? '',
-          index: child.index ?? 0,
-          title: child.title,
-          childCount: (child.children ?? []).length,
-        };
-      }
-    });
-  }
-
-  private filterEntries(entries: BookmarkEntryViewModel[], searchText: string): BookmarkEntryViewModel[] {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return entries;
-    return entries.filter((e) => {
-      if (e.title.toLowerCase().includes(q)) return true;
-      if (e.type === 'link') {
-        return e.url.toLowerCase().includes(q) || e.domain.toLowerCase().includes(q);
-      }
-      return false;
-    });
-  }
-
-  private findNodeById(id: string): chrome.bookmarks.BookmarkTreeNode | null {
-    const search = (nodes: chrome.bookmarks.BookmarkTreeNode[]): chrome.bookmarks.BookmarkTreeNode | null => {
-      for (const n of nodes) {
-        if (n.id === id) return n;
-        if (n.children) {
-          const found = search(n.children);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    return search(this.bookmarkTree);
-  }
-
-  private getVirtualRootId(): string {
-    return this.bookmarkTree[0]?.id ?? '0';
-  }
-
-  private canGoBack(): boolean {
-    const node = this.findNodeById(this.currentFolderId);
-    return node?.parentId !== undefined && node.parentId !== this.getVirtualRootId();
   }
 
   private navigateTo(folderId: string): void {
@@ -228,9 +176,8 @@ export class App {
   }
 
   private navigateBack(): void {
-    const node = this.findNodeById(this.currentFolderId);
-    const virtualRootId = this.getVirtualRootId();
-    if (node?.parentId && node.parentId !== virtualRootId) {
+    const node = findNodeById(this.bookmarkTree, this.currentFolderId);
+    if (node?.parentId) {
       this.navigateTo(node.parentId);
     }
   }
@@ -238,14 +185,14 @@ export class App {
   private async editLink(item: LinkEntryViewModel): Promise<void> {
     const result = await showLinkEditor(item.title, item.url);
     if (!result) return;
-    await this.bookmarksService.updateBookmark(item.id, { title: result.title, url: result.url });
+    await this.operationsService.editLink(item.id, result.title, result.url);
     await this.reloadTree();
   }
 
   private async renameFolder(item: FolderEntryViewModel): Promise<void> {
     const newName = await showFolderEditor(item.title);
     if (!newName || newName === item.title) return;
-    await this.bookmarksService.updateTitle(item.id, newName);
+    await this.operationsService.renameFolder(item.id, newName);
     await this.reloadTree();
   }
 
@@ -254,11 +201,7 @@ export class App {
     const confirmed = await showConfirm(`Delete ${label} "${item.title}"?`);
     if (!confirmed) return;
     try {
-      if (item.type === 'folder') {
-        await this.bookmarksService.removeFolder(item.id);
-      } else {
-        await this.bookmarksService.remove(item.id);
-      }
+      await this.operationsService.deleteItem(item);
       await this.reloadTree();
     } catch (err) {
       await showInfo(`Could not delete: ${String(err)}`);
@@ -266,11 +209,11 @@ export class App {
   }
 
   private async moveItem(item: BookmarkEntryViewModel): Promise<void> {
-    const allFolders = this.collectAllFolders();
-    const targetId = await showMoveToDialog(item, allFolders, this.bookmarkTree);
-    if (!targetId) return;
+    const allFolders = collectAllFolders(this.bookmarkTree);
+    const result = await showMoveToDialog(item, allFolders, this.bookmarkTree);
+    if (!result) return;
     try {
-      await this.bookmarksService.move(item.id, targetId);
+      await this.operationsService.moveItemToFolder(item.id, result);
       await this.reloadTree();
     } catch (err) {
       await showInfo(`Could not move: ${String(err)}`);
@@ -279,39 +222,45 @@ export class App {
 
   private async reorderItem(itemId: string, newIndex: number): Promise<void> {
     try {
-      await this.bookmarksService.move(itemId, this.currentFolderId, newIndex);
-      // onMoved listener will trigger reloadTree; explicit call only needed on error
+      await this.operationsService.reorderItemInFolder(itemId, this.currentFolderId, newIndex);
     } catch (err) {
       console.error('Reorder failed:', err);
       await this.reloadTree();
     }
   }
 
-  private collectAllFolders(): FolderChoice[] {
-    const folders: FolderChoice[] = [];
-    const root = this.bookmarkTree[0];
-    if (!root?.children) return folders;
-
-    const traverse = (nodes: chrome.bookmarks.BookmarkTreeNode[], path: string, depth: number) => {
-      for (const n of nodes) {
-        if (!n.url) {
-          const nodePath = path ? `${path} / ${n.title}` : n.title;
-          folders.push({ id: n.id, title: n.title, path: nodePath, depth });
-          traverse(n.children ?? [], nodePath, depth + 1);
-        }
-      }
-    };
-
-    traverse(root.children, '', 0);
-    return folders;
+  private async sortFolder(action: SortAction): Promise<void> {
+    const node = findNodeById(this.bookmarkTree, this.currentFolderId);
+    if (!node) return;
+    const entries = buildFolderEntries(node, this.faviconService);
+    try {
+      await this.operationsService.sortFolder(this.currentFolderId, entries, action);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not sort: ${String(err)}`);
+      await this.reloadTree();
+    }
   }
 
   private async handleAddFavorite(): Promise<void> {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url || !tab?.title) return;
+    const tab = await this.tabsService.getCurrentTab();
+    if (!tab) {
+      await showInfo('This page cannot be added to bookmarks.');
+      return;
+    }
 
-    const allFolders = this.collectAllFolders();
-    const result = await showAddFavoriteModal(tab.url, tab.title, allFolders, this.currentFolderId);
+    const allFolders = collectAllFolders(this.bookmarkTree);
+    const vrId = getVirtualRootId(this.bookmarkTree);
+    let defaultFolderId: string | undefined;
+    if (this.currentFolderId !== vrId) {
+      defaultFolderId = this.currentFolderId;
+    } else {
+      const rootFolders = getRootFolders(this.bookmarkTree);
+      defaultFolderId =
+        (rootFolders.find((f) => f.id === '1') ?? rootFolders[0])?.id;
+    }
+
+    const result = await showAddFavoriteModal(tab.url, tab.title, allFolders, defaultFolderId);
     if (!result) return;
 
     await this.bookmarksService.createBookmark(result.folderId, result.title, result.url);
