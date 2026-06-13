@@ -9,7 +9,7 @@ import type { BookmarksService } from '../services/bookmarksService.js';
 import type { FaviconService } from '../services/faviconService.js';
 import type { StorageService } from '../services/storageService.js';
 import { createCollectionSection } from './CollectionSection.js';
-import { showConfirm } from './ConfirmModal.js';
+import { showConfirm, showInfo } from './ConfirmModal.js';
 import { showAddFavoriteModal } from './AddFavoriteModal.js';
 
 export class App {
@@ -39,8 +39,6 @@ export class App {
 
     this.bookmarkTree = tree;
 
-    // Apply viewMode first (it clears overrides on the empty default state),
-    // then apply loaded overrides so they are not lost.
     if (settings.viewMode !== this.state.getState().viewMode) {
       this.state.setViewMode(settings.viewMode);
     }
@@ -56,9 +54,10 @@ export class App {
   private buildLayout(): void {
     this.root.innerHTML = '';
 
-    // Search
-    const searchBar = document.createElement('div');
-    searchBar.className = 'search-bar';
+    // Top bar: search + mode select + add button in one row
+    const topBar = document.createElement('div');
+    topBar.className = 'top-bar';
+
     const searchInput = document.createElement('input');
     searchInput.type = 'search';
     searchInput.className = 'search-input';
@@ -76,49 +75,34 @@ export class App {
         this.state.setSearchText('');
       }
     });
-    searchBar.appendChild(searchInput);
-    this.root.appendChild(searchBar);
 
-    // Toolbar
-    const toolbar = document.createElement('div');
-    toolbar.className = 'toolbar';
-
-    const modeToggle = document.createElement('div');
-    modeToggle.className = 'view-mode-toggle';
-    modeToggle.setAttribute('role', 'group');
-    modeToggle.setAttribute('aria-label', 'View mode');
-
-    const compactBtn = document.createElement('button');
-    compactBtn.className = 'mode-btn';
-    compactBtn.id = 'btn-compact';
-    compactBtn.textContent = 'Compact';
-    compactBtn.setAttribute('aria-pressed', String(this.state.getState().viewMode === 'compact'));
-    compactBtn.addEventListener('click', () => this.setMode('compact'));
-
-    const normalBtn = document.createElement('button');
-    normalBtn.className = 'mode-btn';
-    normalBtn.id = 'btn-normal';
-    normalBtn.textContent = 'Normal';
-    normalBtn.setAttribute('aria-pressed', String(this.state.getState().viewMode === 'normal'));
-    normalBtn.addEventListener('click', () => this.setMode('normal'));
-
-    const fullBtn = document.createElement('button');
-    fullBtn.className = 'mode-btn';
-    fullBtn.id = 'btn-full';
-    fullBtn.textContent = 'Full';
-    fullBtn.setAttribute('aria-pressed', String(this.state.getState().viewMode === 'full'));
-    fullBtn.addEventListener('click', () => this.setMode('full'));
-
-    modeToggle.append(compactBtn, normalBtn, fullBtn);
+    const modeSelect = document.createElement('select');
+    modeSelect.className = 'mode-select';
+    modeSelect.id = 'mode-select';
+    modeSelect.setAttribute('aria-label', 'View mode');
+    const modes: { value: ViewMode; label: string }[] = [
+      { value: 'compact', label: 'Compact' },
+      { value: 'normal', label: 'Normal' },
+      { value: 'full', label: 'Full' },
+    ];
+    for (const m of modes) {
+      const opt = document.createElement('option');
+      opt.value = m.value;
+      opt.textContent = m.label;
+      modeSelect.appendChild(opt);
+    }
+    modeSelect.value = this.state.getState().viewMode;
+    modeSelect.addEventListener('change', () => this.setMode(modeSelect.value as ViewMode));
 
     const addBtn = document.createElement('button');
-    addBtn.className = 'btn btn--primary btn--sm';
+    addBtn.className = 'btn-icon btn-icon--primary';
     addBtn.setAttribute('aria-label', 'Add current page to favorites');
-    addBtn.innerHTML = `${svgPlus()} Add`;
+    addBtn.title = 'Add current page to favorites';
+    addBtn.innerHTML = svgPlus();
     addBtn.addEventListener('click', () => this.handleAddFavorite());
 
-    toolbar.append(modeToggle, addBtn);
-    this.root.appendChild(toolbar);
+    topBar.append(searchInput, modeSelect, addBtn);
+    this.root.appendChild(topBar);
 
     // Collections list
     const list = document.createElement('main');
@@ -129,7 +113,7 @@ export class App {
   }
 
   private render(state: CollectionViewState): void {
-    this.updateModeButtons(state.viewMode);
+    this.updateModeSelect(state.viewMode);
     this.root.dataset.mode = state.viewMode;
 
     const list = this.root.querySelector('#collections-list') as HTMLElement;
@@ -152,27 +136,19 @@ export class App {
           this.storageService.saveExpansionOverrides(this.state.getState().folderExpansionOverrides);
         },
         onOpen: (item) => this.openLink(item),
-        onRename: (item, newTitle) => this.renameItem(item, newTitle),
+        onEdit: (item, newTitle, newUrl) => this.editItem(item, newTitle, newUrl),
         onDelete: (item) => this.deleteItem(item),
         onRenameFolder: (f, newTitle) => this.renameFolder(f, newTitle),
+        onDeleteFolder: (f) => this.deleteFolder(f),
         onAddToFolder: (folderId) => this.addCurrentTabToFolder(folderId),
       }, state.searchText);
       list.appendChild(section);
     }
   }
 
-  private updateModeButtons(mode: ViewMode): void {
-    const compactBtn = this.root.querySelector('#btn-compact');
-    const normalBtn = this.root.querySelector('#btn-normal');
-    const fullBtn = this.root.querySelector('#btn-full');
-    if (compactBtn && normalBtn && fullBtn) {
-      compactBtn.classList.toggle('mode-btn--active', mode === 'compact');
-      compactBtn.setAttribute('aria-pressed', String(mode === 'compact'));
-      normalBtn.classList.toggle('mode-btn--active', mode === 'normal');
-      normalBtn.setAttribute('aria-pressed', String(mode === 'normal'));
-      fullBtn.classList.toggle('mode-btn--active', mode === 'full');
-      fullBtn.setAttribute('aria-pressed', String(mode === 'full'));
-    }
+  private updateModeSelect(mode: ViewMode): void {
+    const select = this.root.querySelector('#mode-select') as HTMLSelectElement | null;
+    if (select && select.value !== mode) select.value = mode;
   }
 
   private buildFolderViewModels(): FolderViewModel[] {
@@ -239,7 +215,12 @@ export class App {
           return { ...folder, expansionState: 'expanded' as const };
         }
         if (matchedItems.length > 0) {
-          return { ...folder, allItems: matchedItems, itemCount: matchedItems.length, expansionState: 'expanded' as const };
+          return {
+            ...folder,
+            allItems: matchedItems,
+            itemCount: matchedItems.length,
+            expansionState: 'expanded' as const,
+          };
         }
         return null;
       })
@@ -256,8 +237,12 @@ export class App {
     chrome.tabs.create({ url: item.url });
   }
 
-  private async renameItem(item: FavoriteItemViewModel, newTitle: string): Promise<void> {
-    await this.bookmarksService.updateTitle(item.id, newTitle);
+  private async editItem(
+    item: FavoriteItemViewModel,
+    newTitle: string,
+    newUrl: string,
+  ): Promise<void> {
+    await this.bookmarksService.updateBookmark(item.id, { title: newTitle, url: newUrl });
     await this.reloadTree();
   }
 
@@ -273,9 +258,25 @@ export class App {
     await this.reloadTree();
   }
 
+  private async deleteFolder(folder: FolderViewModel): Promise<void> {
+    const msg =
+      folder.itemCount > 0
+        ? `Delete folder "${folder.title}" and all ${folder.itemCount} items inside?`
+        : `Delete folder "${folder.title}"?`;
+    const confirmed = await showConfirm(msg);
+    if (!confirmed) return;
+    await this.bookmarksService.removeFolder(folder.id);
+    await this.reloadTree();
+  }
+
   private async addCurrentTabToFolder(folderId: string): Promise<void> {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url || !tab?.title) return;
+    const folder = this.buildFolderViewModels().find((f) => f.id === folderId);
+    if (folder?.allItems.some((item) => item.url === tab.url)) {
+      await showInfo('This page is already in this collection.');
+      return;
+    }
     await this.bookmarksService.createBookmark(folderId, tab.title, tab.url);
     await this.reloadTree();
   }
@@ -347,10 +348,6 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function svgCollections(): string {
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
-}
-
 function svgPlus(): string {
-  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 }

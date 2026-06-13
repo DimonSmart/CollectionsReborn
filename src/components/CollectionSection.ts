@@ -1,10 +1,13 @@
 import type { FolderViewModel, FavoriteItemViewModel, ViewMode } from '../types.js';
 import { PREVIEW_LIMIT } from '../types.js';
 import { createFavoriteItem, type FavoriteItemCallbacks } from './FavoriteItem.js';
+import { showActionsMenu } from './ActionsMenu.js';
+import { showFolderEditor } from './ItemEditor.js';
 
 export interface CollectionSectionCallbacks extends FavoriteItemCallbacks {
   onToggle: (folderId: string, itemCount: number) => void;
   onRenameFolder: (folder: FolderViewModel, newTitle: string) => Promise<void>;
+  onDeleteFolder: (folder: FolderViewModel) => Promise<void>;
   onAddToFolder: (folderId: string) => void;
 }
 
@@ -35,6 +38,15 @@ function buildHeader(folder: FolderViewModel, callbacks: CollectionSectionCallba
   header.setAttribute('aria-label', `${folder.title}, ${folder.itemCount} items`);
   header.tabIndex = 0;
 
+  const chevron = document.createElement('span');
+  chevron.className = `collection-chevron${folder.expansionState === 'expanded' ? ' collection-chevron--open' : ''}`;
+  chevron.innerHTML = svgChevron();
+  chevron.setAttribute('aria-hidden', 'true');
+
+  if (folder.itemCount === 0) {
+    chevron.style.visibility = 'hidden';
+  }
+
   const folderIcon = document.createElement('span');
   folderIcon.className = 'collection-folder-icon';
   folderIcon.setAttribute('aria-hidden', 'true');
@@ -43,46 +55,45 @@ function buildHeader(folder: FolderViewModel, callbacks: CollectionSectionCallba
   const titleEl = document.createElement('span');
   titleEl.className = 'collection-title';
   titleEl.textContent = folder.title;
+  titleEl.title = folder.title;
 
   const count = document.createElement('span');
   count.className = 'collection-count';
   count.textContent = String(folder.itemCount);
 
-  const spacer = document.createElement('span');
-  spacer.className = 'collection-spacer';
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'action-btn collection-action-btn';
-  addBtn.setAttribute('aria-label', 'Add current tab');
-  addBtn.title = 'Add current tab';
-  addBtn.innerHTML = svgPlus();
-  addBtn.addEventListener('click', (e) => {
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'action-btn collection-action-btn';
+  menuBtn.setAttribute('aria-label', `Actions for ${folder.title}`);
+  menuBtn.innerHTML = svgEllipsis();
+  menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    callbacks.onAddToFolder(folder.id);
+    showActionsMenu(menuBtn, [
+      {
+        label: 'Edit folder name',
+        action: async () => {
+          const newName = await showFolderEditor(folder.title);
+          if (newName && newName !== folder.title) {
+            await callbacks.onRenameFolder(folder, newName);
+          }
+        },
+      },
+      {
+        label: 'Add current tab',
+        action: () => callbacks.onAddToFolder(folder.id),
+      },
+      {
+        label: 'Delete folder',
+        variant: 'danger',
+        action: () => callbacks.onDeleteFolder(folder),
+      },
+    ]);
   });
 
-  const renameBtn = document.createElement('button');
-  renameBtn.className = 'action-btn collection-action-btn';
-  renameBtn.setAttribute('aria-label', `Rename ${folder.title}`);
-  renameBtn.innerHTML = svgPencil();
-  renameBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    startFolderRename(folder, titleEl, callbacks);
-  });
-
-  const chevron = document.createElement('span');
-  chevron.className = `collection-chevron${folder.expansionState === 'expanded' ? ' collection-chevron--open' : ''}`;
-  chevron.innerHTML = svgChevron();
-  chevron.setAttribute('aria-hidden', 'true');
-
-  if (folder.itemCount === 0) {
-    chevron.style.visibility = 'hidden';
-  } else {
+  if (folder.itemCount > 0) {
     const toggle = () => callbacks.onToggle(folder.id, folder.itemCount);
 
     header.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('.action-btn')) return;
-      if ((e.target as HTMLElement).closest('.collection-title[contenteditable="true"]')) return;
       toggle();
     });
 
@@ -94,12 +105,7 @@ function buildHeader(folder: FolderViewModel, callbacks: CollectionSectionCallba
     });
   }
 
-  header.append(chevron, folderIcon, titleEl, count, spacer, addBtn, renameBtn);
-
-  header.addEventListener('dblclick', (e) => {
-    if ((e.target as HTMLElement).closest('.action-btn')) return;
-    startFolderRename(folder, titleEl, callbacks);
-  });
+  header.append(chevron, folderIcon, titleEl, count, menuBtn);
 
   return header;
 }
@@ -133,7 +139,6 @@ function buildBody(
   if (isSearching || folder.expansionState === 'expanded') {
     visibleItems = folder.allItems;
   } else {
-    // preview state
     visibleItems = folder.allItems.slice(0, PREVIEW_LIMIT);
   }
 
@@ -150,7 +155,11 @@ function buildBody(
       more.textContent = `Show all ${folder.itemCount} items`;
       more.addEventListener('click', () => callbacks.onToggle(folder.id, folder.itemCount));
       body.appendChild(more);
-    } else if (folder.expansionState === 'expanded' && folder.allItems.length > PREVIEW_LIMIT && mode !== 'compact') {
+    } else if (
+      folder.expansionState === 'expanded' &&
+      folder.allItems.length > PREVIEW_LIMIT &&
+      mode !== 'compact'
+    ) {
       const less = document.createElement('button');
       less.className = 'collection-show-more';
       less.setAttribute('aria-label', `Collapse ${folder.title}`);
@@ -161,66 +170,6 @@ function buildBody(
   }
 
   return body;
-}
-
-function startFolderRename(
-  folder: FolderViewModel,
-  titleEl: HTMLElement,
-  callbacks: CollectionSectionCallbacks,
-): void {
-  if (titleEl.contentEditable === 'true') return;
-
-  titleEl.contentEditable = 'true';
-  titleEl.classList.add('collection-title--editing');
-  titleEl.focus();
-  selectAll(titleEl);
-
-  const original = titleEl.textContent ?? '';
-
-  const commit = async () => {
-    const newTitle = (titleEl.textContent ?? '').trim();
-    titleEl.contentEditable = 'false';
-    titleEl.classList.remove('collection-title--editing');
-
-    if (!newTitle) {
-      titleEl.textContent = original;
-      return;
-    }
-    if (newTitle === original) return;
-
-    try {
-      await callbacks.onRenameFolder(folder, newTitle);
-    } catch {
-      titleEl.textContent = original;
-    }
-  };
-
-  const cancel = () => {
-    titleEl.contentEditable = 'false';
-    titleEl.classList.remove('collection-title--editing');
-    titleEl.textContent = original;
-  };
-
-  titleEl.addEventListener('keydown', (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancel();
-    }
-  });
-
-  titleEl.addEventListener('blur', commit, { once: true });
-}
-
-function selectAll(el: HTMLElement): void {
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  const sel = window.getSelection();
-  sel?.removeAllRanges();
-  sel?.addRange(range);
 }
 
 function svgChevron(): string {
@@ -235,10 +184,6 @@ function svgFolderOpen(): string {
   return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
 }
 
-function svgPlus(): string {
-  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-}
-
-function svgPencil(): string {
-  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+function svgEllipsis(): string {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>`;
 }

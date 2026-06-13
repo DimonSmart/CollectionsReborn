@@ -26,6 +26,17 @@ export class BookmarksService {
     return chrome.bookmarks.update(id, { title });
   }
 
+  async updateBookmark(
+    id: string,
+    changes: { title?: string; url?: string },
+  ): Promise<chrome.bookmarks.BookmarkTreeNode> {
+    return chrome.bookmarks.update(id, changes);
+  }
+
+  async removeFolder(id: string): Promise<void> {
+    return chrome.bookmarks.removeTree(id);
+  }
+
   async move(
     id: string,
     parentId: string,
