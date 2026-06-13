@@ -1,25 +1,27 @@
 import type {
-  FolderViewModel,
-  FavoriteItemViewModel,
-  CollectionViewState,
-  ViewMode,
+  BookmarkEntryViewModel,
+  FolderEntryViewModel,
+  LinkEntryViewModel,
+  FolderChoice,
 } from '../types.js';
-import type { AppState } from '../state.js';
 import type { BookmarksService } from '../services/bookmarksService.js';
 import type { FaviconService } from '../services/faviconService.js';
 import type { StorageService } from '../services/storageService.js';
-import { createCollectionSection } from './CollectionSection.js';
+import { createFolderView } from './FolderView.js';
 import { showConfirm, showInfo } from './ConfirmModal.js';
+import { showLinkEditor, showFolderEditor } from './ItemEditor.js';
+import { showMoveToDialog } from './MoveToDialog.js';
 import { showAddFavoriteModal } from './AddFavoriteModal.js';
 
 export class App {
   private root: HTMLElement;
   private bookmarkTree: chrome.bookmarks.BookmarkTreeNode[] = [];
+  private currentFolderId: string = '1';
+  private searchText: string = '';
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly container: HTMLElement,
-    private readonly state: AppState,
     private readonly bookmarksService: BookmarksService,
     private readonly faviconService: FaviconService,
     private readonly storageService: StorageService,
@@ -38,61 +40,45 @@ export class App {
     ]);
 
     this.bookmarkTree = tree;
-
-    if (settings.viewMode !== this.state.getState().viewMode) {
-      this.state.setViewMode(settings.viewMode);
-    }
-    this.state.setExpansionOverrides(settings.folderExpansionOverrides);
+    this.currentFolderId = this.resolveStartupFolder(settings.currentFolderId);
 
     this.buildLayout();
-    this.render(this.state.getState());
-
-    this.state.subscribe((s) => this.render(s));
+    this.render();
     this.attachBookmarkListeners();
+  }
+
+  private resolveStartupFolder(savedId?: string): string {
+    if (savedId && this.findNodeById(savedId)) return savedId;
+    const root = this.bookmarkTree[0];
+    if (root?.children?.length) return root.children[0].id;
+    return '1';
   }
 
   private buildLayout(): void {
     this.root.innerHTML = '';
 
-    // Top bar: search + mode select + add button in one row
     const topBar = document.createElement('div');
     topBar.className = 'top-bar';
 
     const searchInput = document.createElement('input');
     searchInput.type = 'search';
     searchInput.className = 'search-input';
-    searchInput.placeholder = 'Search favorites…';
-    searchInput.setAttribute('aria-label', 'Search favorites');
+    searchInput.placeholder = 'Search in folder…';
+    searchInput.setAttribute('aria-label', 'Search in current folder');
     searchInput.addEventListener('input', () => {
       if (this.searchDebounce) clearTimeout(this.searchDebounce);
       this.searchDebounce = setTimeout(() => {
-        this.state.setSearchText(searchInput.value);
+        this.searchText = searchInput.value;
+        this.render();
       }, 150);
     });
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         searchInput.value = '';
-        this.state.setSearchText('');
+        this.searchText = '';
+        this.render();
       }
     });
-
-    const modeSelect = document.createElement('select');
-    modeSelect.className = 'mode-select';
-    modeSelect.id = 'mode-select';
-    modeSelect.setAttribute('aria-label', 'View mode');
-    const modes: { value: ViewMode; label: string }[] = [
-      { value: 'compact', label: 'Compact' },
-      { value: 'normal', label: 'Normal' },
-      { value: 'full', label: 'Full' },
-    ];
-    for (const m of modes) {
-      const opt = document.createElement('option');
-      opt.value = m.value;
-      opt.textContent = m.label;
-      modeSelect.appendChild(opt);
-    }
-    modeSelect.value = this.state.getState().viewMode;
-    modeSelect.addEventListener('change', () => this.setMode(modeSelect.value as ViewMode));
 
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-icon btn-icon--primary';
@@ -101,193 +87,231 @@ export class App {
     addBtn.innerHTML = svgPlus();
     addBtn.addEventListener('click', () => this.handleAddFavorite());
 
-    topBar.append(searchInput, modeSelect, addBtn);
+    topBar.append(searchInput, addBtn);
     this.root.appendChild(topBar);
 
-    // Collections list
-    const list = document.createElement('main');
-    list.id = 'collections-list';
-    list.className = 'collections-list';
-    list.setAttribute('aria-label', 'Collections');
-    this.root.appendChild(list);
+    const viewContainer = document.createElement('main');
+    viewContainer.id = 'folder-view-container';
+    viewContainer.className = 'folder-view-container';
+    this.root.appendChild(viewContainer);
   }
 
-  private render(state: CollectionViewState): void {
-    this.updateModeSelect(state.viewMode);
-    this.root.dataset.mode = state.viewMode;
+  private render(): void {
+    const container = this.root.querySelector('#folder-view-container') as HTMLElement | null;
+    if (!container) return;
 
-    const list = this.root.querySelector('#collections-list') as HTMLElement;
-    if (!list) return;
-
-    const folders = this.buildFolderViewModels();
-    const filtered = this.filterFolders(folders, state.searchText);
-
-    list.innerHTML = '';
-
-    if (filtered.length === 0) {
-      list.appendChild(buildEmptyState(state.searchText));
+    const currentNode = this.findNodeById(this.currentFolderId);
+    if (!currentNode) {
+      // Folder was deleted externally — fall back to startup folder
+      this.currentFolderId = this.resolveStartupFolder();
+      const fallback = this.findNodeById(this.currentFolderId);
+      if (!fallback) {
+        container.innerHTML = '';
+        container.appendChild(buildEmptyState(''));
+        return;
+      }
+      this.renderFolder(container, fallback);
       return;
     }
 
-    for (const folder of filtered) {
-      const section = createCollectionSection(folder, state.viewMode, {
-        onToggle: (id, itemCount) => {
-          this.state.toggleFolder(id, itemCount);
-          this.storageService.saveExpansionOverrides(this.state.getState().folderExpansionOverrides);
-        },
-        onOpen: (item) => this.openLink(item),
-        onEdit: (item, newTitle, newUrl) => this.editItem(item, newTitle, newUrl),
-        onDelete: (item) => this.deleteItem(item),
-        onRenameFolder: (f, newTitle) => this.renameFolder(f, newTitle),
-        onDeleteFolder: (f) => this.deleteFolder(f),
-        onAddToFolder: (folderId) => this.addCurrentTabToFolder(folderId),
-      }, state.searchText);
-      list.appendChild(section);
-    }
+    this.renderFolder(container, currentNode);
   }
 
-  private updateModeSelect(mode: ViewMode): void {
-    const select = this.root.querySelector('#mode-select') as HTMLSelectElement | null;
-    if (select && select.value !== mode) select.value = mode;
+  private renderFolder(
+    container: HTMLElement,
+    node: chrome.bookmarks.BookmarkTreeNode,
+  ): void {
+    const entries = this.buildEntries(node);
+    const filtered = this.filterEntries(entries, this.searchText);
+    const canGoBack = this.canGoBack();
+    const isSearching = this.searchText.trim().length > 0;
+
+    const view = createFolderView(
+      { id: node.id, title: this.displayTitle(node) },
+      filtered,
+      canGoBack,
+      isSearching,
+      {
+        onNavigateToFolder: (id) => this.navigateTo(id),
+        onNavigateBack: () => this.navigateBack(),
+        onOpenLink: (url) => chrome.tabs.create({ url }),
+        onEditLink: (item) => this.editLink(item),
+        onDeleteItem: (item) => this.deleteItem(item),
+        onRenameFolder: (item) => this.renameFolder(item),
+        onMoveItem: (item) => this.moveItem(item),
+        onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
+      },
+    );
+
+    container.innerHTML = '';
+    container.appendChild(view);
   }
 
-  private buildFolderViewModels(): FolderViewModel[] {
-    const root = this.bookmarkTree[0];
-    if (!root?.children) return [];
+  private displayTitle(node: chrome.bookmarks.BookmarkTreeNode): string {
+    if (node.title) return node.title;
+    // Fallback labels for known system container IDs
+    if (node.id === '1') return 'Bookmarks Bar';
+    if (node.id === '2') return 'Other Bookmarks';
+    if (node.id === '3') return 'Mobile Bookmarks';
+    return 'Bookmarks';
+  }
 
-    const folders: FolderViewModel[] = [];
+  private buildEntries(node: chrome.bookmarks.BookmarkTreeNode): BookmarkEntryViewModel[] {
+    return (node.children ?? []).map((child) => {
+      if (child.url) {
+        const domain = this.faviconService.getDomain(child.url);
+        return {
+          type: 'link' as const,
+          id: child.id,
+          parentId: child.parentId ?? '',
+          index: child.index ?? 0,
+          title: child.title || domain || child.url,
+          url: child.url,
+          domain,
+          faviconUrl: this.faviconService.getFaviconUrl(child.url, 16),
+        };
+      } else {
+        return {
+          type: 'folder' as const,
+          id: child.id,
+          parentId: child.parentId ?? '',
+          index: child.index ?? 0,
+          title: child.title,
+          childCount: (child.children ?? []).length,
+        };
+      }
+    });
+  }
 
-    for (const container of root.children) {
-      for (const node of container.children ?? []) {
-        if (!node.url) {
-          folders.push(this.nodeToFolderViewModel(node));
+  private filterEntries(entries: BookmarkEntryViewModel[], searchText: string): BookmarkEntryViewModel[] {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter((e) => {
+      if (e.title.toLowerCase().includes(q)) return true;
+      if (e.type === 'link') {
+        return e.url.toLowerCase().includes(q) || e.domain.toLowerCase().includes(q);
+      }
+      return false;
+    });
+  }
+
+  private findNodeById(id: string): chrome.bookmarks.BookmarkTreeNode | null {
+    const search = (nodes: chrome.bookmarks.BookmarkTreeNode[]): chrome.bookmarks.BookmarkTreeNode | null => {
+      for (const n of nodes) {
+        if (n.id === id) return n;
+        if (n.children) {
+          const found = search(n.children);
+          if (found) return found;
         }
       }
-    }
+      return null;
+    };
+    return search(this.bookmarkTree);
+  }
 
+  private getVirtualRootId(): string {
+    return this.bookmarkTree[0]?.id ?? '0';
+  }
+
+  private canGoBack(): boolean {
+    const node = this.findNodeById(this.currentFolderId);
+    return node?.parentId !== undefined && node.parentId !== this.getVirtualRootId();
+  }
+
+  private navigateTo(folderId: string): void {
+    this.currentFolderId = folderId;
+    this.searchText = '';
+    const searchInput = this.root.querySelector<HTMLInputElement>('.search-input');
+    if (searchInput) searchInput.value = '';
+    this.render();
+    this.storageService.saveCurrentFolder(folderId);
+  }
+
+  private navigateBack(): void {
+    const node = this.findNodeById(this.currentFolderId);
+    const virtualRootId = this.getVirtualRootId();
+    if (node?.parentId && node.parentId !== virtualRootId) {
+      this.navigateTo(node.parentId);
+    }
+  }
+
+  private async editLink(item: LinkEntryViewModel): Promise<void> {
+    const result = await showLinkEditor(item.title, item.url);
+    if (!result) return;
+    await this.bookmarksService.updateBookmark(item.id, { title: result.title, url: result.url });
+    await this.reloadTree();
+  }
+
+  private async renameFolder(item: FolderEntryViewModel): Promise<void> {
+    const newName = await showFolderEditor(item.title);
+    if (!newName || newName === item.title) return;
+    await this.bookmarksService.updateTitle(item.id, newName);
+    await this.reloadTree();
+  }
+
+  private async deleteItem(item: BookmarkEntryViewModel): Promise<void> {
+    const label = item.type === 'folder' ? 'folder' : 'bookmark';
+    const confirmed = await showConfirm(`Delete ${label} "${item.title}"?`);
+    if (!confirmed) return;
+    try {
+      if (item.type === 'folder') {
+        await this.bookmarksService.removeFolder(item.id);
+      } else {
+        await this.bookmarksService.remove(item.id);
+      }
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not delete: ${String(err)}`);
+    }
+  }
+
+  private async moveItem(item: BookmarkEntryViewModel): Promise<void> {
+    const allFolders = this.collectAllFolders();
+    const targetId = await showMoveToDialog(item, allFolders, this.bookmarkTree);
+    if (!targetId) return;
+    try {
+      await this.bookmarksService.move(item.id, targetId);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not move: ${String(err)}`);
+    }
+  }
+
+  private async reorderItem(itemId: string, newIndex: number): Promise<void> {
+    try {
+      await this.bookmarksService.move(itemId, this.currentFolderId, newIndex);
+      // onMoved listener will trigger reloadTree; explicit call only needed on error
+    } catch (err) {
+      console.error('Reorder failed:', err);
+      await this.reloadTree();
+    }
+  }
+
+  private collectAllFolders(): FolderChoice[] {
+    const folders: FolderChoice[] = [];
+    const root = this.bookmarkTree[0];
+    if (!root?.children) return folders;
+
+    const traverse = (nodes: chrome.bookmarks.BookmarkTreeNode[], path: string, depth: number) => {
+      for (const n of nodes) {
+        if (!n.url) {
+          const nodePath = path ? `${path} / ${n.title}` : n.title;
+          folders.push({ id: n.id, title: n.title, path: nodePath, depth });
+          traverse(n.children ?? [], nodePath, depth + 1);
+        }
+      }
+    };
+
+    traverse(root.children, '', 0);
     return folders;
-  }
-
-  private nodeToFolderViewModel(node: chrome.bookmarks.BookmarkTreeNode): FolderViewModel {
-    const allItems = (node.children ?? [])
-      .filter((c) => !!c.url)
-      .map((c) => this.nodeToItemViewModel(c));
-
-    const expansionState = this.state.getFolderExpansionState(node.id, allItems.length);
-
-    return {
-      id: node.id,
-      title: node.title,
-      itemCount: allItems.length,
-      expansionState,
-      allItems,
-    };
-  }
-
-  private nodeToItemViewModel(node: chrome.bookmarks.BookmarkTreeNode): FavoriteItemViewModel {
-    const url = node.url ?? '';
-    const domain = this.faviconService.getDomain(url);
-    return {
-      id: node.id,
-      title: node.title || domain || url,
-      url,
-      domain,
-      faviconUrl: this.faviconService.getFaviconUrl(url, 32),
-      parentId: node.parentId ?? '',
-    };
-  }
-
-  private filterFolders(folders: FolderViewModel[], searchText: string): FolderViewModel[] {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return folders;
-
-    return folders
-      .map((folder) => {
-        const folderMatch = folder.title.toLowerCase().includes(q);
-        const matchedItems = folder.allItems.filter(
-          (item) =>
-            item.title.toLowerCase().includes(q) ||
-            item.url.toLowerCase().includes(q) ||
-            item.domain.toLowerCase().includes(q),
-        );
-
-        if (folderMatch) {
-          return { ...folder, expansionState: 'expanded' as const };
-        }
-        if (matchedItems.length > 0) {
-          return {
-            ...folder,
-            allItems: matchedItems,
-            itemCount: matchedItems.length,
-            expansionState: 'expanded' as const,
-          };
-        }
-        return null;
-      })
-      .filter((f): f is FolderViewModel => f !== null);
-  }
-
-  private setMode(mode: ViewMode): void {
-    this.state.setViewMode(mode);
-    this.storageService.saveViewMode(mode);
-    this.storageService.saveExpansionOverrides({});
-  }
-
-  private openLink(item: FavoriteItemViewModel): void {
-    chrome.tabs.create({ url: item.url });
-  }
-
-  private async editItem(
-    item: FavoriteItemViewModel,
-    newTitle: string,
-    newUrl: string,
-  ): Promise<void> {
-    await this.bookmarksService.updateBookmark(item.id, { title: newTitle, url: newUrl });
-    await this.reloadTree();
-  }
-
-  private async renameFolder(folder: FolderViewModel, newTitle: string): Promise<void> {
-    await this.bookmarksService.updateTitle(folder.id, newTitle);
-    await this.reloadTree();
-  }
-
-  private async deleteItem(item: FavoriteItemViewModel): Promise<void> {
-    const confirmed = await showConfirm(`Delete "${item.title}"?`);
-    if (!confirmed) return;
-    await this.bookmarksService.remove(item.id);
-    await this.reloadTree();
-  }
-
-  private async deleteFolder(folder: FolderViewModel): Promise<void> {
-    const msg =
-      folder.itemCount > 0
-        ? `Delete folder "${folder.title}" and all ${folder.itemCount} items inside?`
-        : `Delete folder "${folder.title}"?`;
-    const confirmed = await showConfirm(msg);
-    if (!confirmed) return;
-    await this.bookmarksService.removeFolder(folder.id);
-    await this.reloadTree();
-  }
-
-  private async addCurrentTabToFolder(folderId: string): Promise<void> {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url || !tab?.title) return;
-    const folder = this.buildFolderViewModels().find((f) => f.id === folderId);
-    if (folder?.allItems.some((item) => item.url === tab.url)) {
-      await showInfo('This page is already in this collection.');
-      return;
-    }
-    await this.bookmarksService.createBookmark(folderId, tab.title, tab.url);
-    await this.reloadTree();
   }
 
   private async handleAddFavorite(): Promise<void> {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url || !tab?.title) return;
 
-    const folders = this.buildFolderViewModels();
-
-    const result = await showAddFavoriteModal(tab.url, tab.title, folders);
+    const allFolders = this.collectAllFolders();
+    const result = await showAddFavoriteModal(tab.url, tab.title, allFolders, this.currentFolderId);
     if (!result) return;
 
     await this.bookmarksService.createBookmark(result.folderId, result.title, result.url);
@@ -296,7 +320,7 @@ export class App {
 
   private async reloadTree(): Promise<void> {
     this.bookmarkTree = await this.bookmarksService.getTree();
-    this.render(this.state.getState());
+    this.render();
   }
 
   private attachBookmarkListeners(): void {
@@ -314,13 +338,8 @@ function buildSkeletonHTML(): string {
     <div class="skeleton-panel">
       <div class="skeleton-search"></div>
       <div class="skeleton-sections">
-        ${Array.from({ length: 4 }).map(() => `
-          <div class="skeleton-section">
-            <div class="skeleton-row skeleton-row--header"></div>
-            <div class="skeleton-row"></div>
-            <div class="skeleton-row skeleton-row--short"></div>
-            <div class="skeleton-row"></div>
-          </div>
+        ${Array.from({ length: 5 }).map(() => `
+          <div class="skeleton-row"></div>
         `).join('')}
       </div>
     </div>
@@ -337,8 +356,8 @@ function buildEmptyState(searchText: string): HTMLElement {
     `;
   } else {
     el.innerHTML = `
-      <p class="empty-state__title">No favorites yet</p>
-      <p class="empty-state__hint">Add the current page to start building your collections.</p>
+      <p class="empty-state__title">No bookmarks yet</p>
+      <p class="empty-state__hint">Add the current page with the + button.</p>
     `;
   }
   return el;

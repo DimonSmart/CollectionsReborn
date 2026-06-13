@@ -1,6 +1,6 @@
 # Collections Reborn
 
-A browser extension for Microsoft Edge and Google Chrome that displays your standard browser bookmarks as beautiful collections in a side panel.
+A browser extension for Microsoft Edge and Google Chrome that displays your standard browser bookmarks in a clean, navigable side panel.
 
 ## Quick Start
 
@@ -49,16 +49,19 @@ collections-reborn/
 ├── sidepanel.html          # Side panel entry point
 ├── src/
 │   ├── main.ts             # App bootstrap
-│   ├── state.ts            # Reactive state (view mode, expanded folders, search)
 │   ├── types.ts            # Shared TypeScript types
+│   ├── state.ts            # (unused — state managed in App)
 │   ├── services/
 │   │   ├── bookmarksService.ts   # chrome.bookmarks API wrapper
 │   │   ├── faviconService.ts     # Favicon URL + domain helpers
-│   │   └── storageService.ts     # chrome.storage.sync (persists UI prefs)
+│   │   └── storageService.ts     # chrome.storage.sync (persists last folder)
 │   └── components/
-│       ├── App.ts                # Main orchestrator — layout, render, events
-│       ├── CollectionSection.ts  # Folder rendered as a collection block
-│       ├── FavoriteItem.ts       # Individual bookmark link
+│       ├── App.ts                # Main orchestrator — layout, navigation, events
+│       ├── FolderView.ts         # Nav header + sortable bookmark list
+│       ├── BookmarkRow.ts        # Individual row (folder or link)
+│       ├── MoveToDialog.ts       # "Move to…" folder picker dialog
+│       ├── ActionsMenu.ts        # Contextual dropdown menu
+│       ├── ItemEditor.ts         # Rename / edit link dialogs
 │       ├── ConfirmModal.ts       # Delete confirmation dialog
 │       └── AddFavoriteModal.ts   # Add current page modal
 ├── styles/
@@ -70,8 +73,9 @@ collections-reborn/
 
 **Data flow:**
 - `chrome.bookmarks` is the single source of truth
-- `chrome.storage.sync` stores only UI preferences (view mode, expanded folder list)
+- `chrome.storage.sync` stores only the last opened folder ID
 - No external backend, no cloud storage, no data leaves the browser
+- All ordering and folder moves are written directly to browser bookmarks
 
 ---
 
@@ -81,7 +85,7 @@ collections-reborn/
 |-------------|---------|
 | `bookmarks` | Read and write browser bookmarks |
 | `sidePanel` | Show the side panel UI |
-| `storage`   | Persist UI preferences (view mode, expanded state) |
+| `storage`   | Persist last opened folder ID |
 | `favicon`   | Load site favicons via the browser's built-in favicon API |
 | `tabs`      | Get the current active tab URL when adding a page to favorites |
 
@@ -89,20 +93,32 @@ No host permissions (`http://*/*`, `https://*/*`) are requested.
 
 ---
 
-## MVP Features
+## Features
 
-- Side panel opens on extension icon click
-- Bookmarks folders displayed as expandable collection sections
-- Compact and Normal view modes
-- Favicon for every link (with letter fallback)
-- Search across titles, URLs, domains and folder names
-- Expand / collapse folder inline
-- Open links in a new tab
-- Add current page to a selected folder
-- Rename any bookmark or folder (inline, double-click)
-- Delete a bookmark (with confirmation)
-- UI preferences persisted across panel sessions
+### One-level folder navigation
+The side panel shows the direct children of the current folder — subfolders and links side by side. Click a folder to open it. Use the ← back button to return to the parent folder. No recursive tree, no expand/collapse.
+
+### Compact layout (only mode)
+All items are displayed in a dense list. There are no Compact/Normal/Full view modes.
+
+### Mouse drag-and-drop reorder
+Folders and links inside the current folder can be reordered by dragging. Grab the `⋮⋮` handle on the left of any row and drag it to a new position. The new order is written to browser bookmarks immediately. Reorder is disabled while a search is active.
+
+### Move to another folder
+Open the `⋯` menu on any row and choose **Move to…** to move it to a different folder. A dialog shows the full bookmark tree with search. The current folder is marked and disabled as a target. Moving a folder disables itself and all its descendants as targets (to prevent cycles).
+
+### Folder and link actions
+- **Folders**: Open, Rename, Move to…, Delete
+- **Links**: Open, Edit…, Move to…, Delete
+
+### Add current page
+Press the **+** button to add the active tab as a bookmark. A modal lets you choose the title and destination folder, defaulting to the current folder.
+
+### Search in current folder
+The search box filters the current folder's children by title, URL, or domain. Drag handles are hidden while searching.
+
+---
 
 ## Not in MVP
 
-Screenshots/previews, drag-and-drop, tags, notes, cloud sync, Firefox/Safari support.
+Cloud sync, tags, notes, screenshots, virtual collections, drag into invisible folders, keyboard reorder shortcuts, Firefox/Safari support.

@@ -1,33 +1,42 @@
-export const PREVIEW_LIMIT = 4;
-
-export type ViewMode = 'compact' | 'normal' | 'full';
-export type FolderExpansionState = 'collapsed' | 'preview' | 'expanded';
-
-export interface CollectionViewState {
-  folderExpansionOverrides: Record<string, 'collapsed' | 'expanded'>;
-  selectedFolderId?: string;
-  searchText: string;
-  viewMode: ViewMode;
+export interface BaseEntryViewModel {
+  id: string;
+  parentId: string;
+  index: number;
+  title: string;
 }
 
-export interface FavoriteItemViewModel {
-  id: string;
-  title: string;
+export interface FolderEntryViewModel extends BaseEntryViewModel {
+  type: 'folder';
+  childCount: number;
+}
+
+export interface LinkEntryViewModel extends BaseEntryViewModel {
+  type: 'link';
   url: string;
   domain: string;
   faviconUrl: string;
-  parentId: string;
 }
 
-export interface FolderViewModel {
-  id: string;
-  title: string;
-  itemCount: number;
-  expansionState: FolderExpansionState;
-  allItems: FavoriteItemViewModel[];
+export type BookmarkEntryViewModel = FolderEntryViewModel | LinkEntryViewModel;
+
+export interface FolderViewCallbacks {
+  onNavigateToFolder: (folderId: string) => void;
+  onNavigateBack: () => void;
+  onOpenLink: (url: string) => void;
+  onEditLink: (item: LinkEntryViewModel) => void;
+  onDeleteItem: (item: BookmarkEntryViewModel) => void;
+  onRenameFolder: (item: FolderEntryViewModel) => void;
+  onMoveItem: (item: BookmarkEntryViewModel) => void;
+  onReorder: (itemId: string, newIndex: number) => void;
 }
 
 export interface StoredSettings {
-  viewMode: ViewMode;
-  folderExpansionOverrides: Record<string, 'collapsed' | 'expanded'>;
+  currentFolderId?: string;
+}
+
+export interface FolderChoice {
+  id: string;
+  title: string;
+  path: string;
+  depth: number;
 }

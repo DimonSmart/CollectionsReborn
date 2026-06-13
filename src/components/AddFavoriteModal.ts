@@ -1,4 +1,4 @@
-import type { FolderViewModel } from '../types.js';
+import type { FolderChoice } from '../types.js';
 
 export interface AddFavoriteResult {
   folderId: string;
@@ -9,7 +9,8 @@ export interface AddFavoriteResult {
 export function showAddFavoriteModal(
   url: string,
   title: string,
-  folders: FolderViewModel[],
+  folders: FolderChoice[],
+  defaultFolderId?: string,
 ): Promise<AddFavoriteResult | null> {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -37,16 +38,16 @@ export function showAddFavoriteModal(
 
     const folderLabel = document.createElement('label');
     folderLabel.className = 'modal-label';
-    folderLabel.textContent = 'Collection';
+    folderLabel.textContent = 'Folder';
 
     const select = document.createElement('select');
     select.className = 'modal-select';
-    select.setAttribute('aria-label', 'Select collection');
+    select.setAttribute('aria-label', 'Select folder');
 
     for (const folder of folders) {
       const opt = document.createElement('option');
       opt.value = folder.id;
-      opt.textContent = folder.title;
+      opt.textContent = folder.path || folder.title;
       select.appendChild(opt);
     }
 
@@ -57,14 +58,10 @@ export function showAddFavoriteModal(
       select.appendChild(opt);
     }
 
-    const duplicateError = document.createElement('div');
-    duplicateError.className = 'editor-error';
-    duplicateError.style.display = 'none';
-    duplicateError.textContent = 'This page is already in the selected collection.';
-
-    select.addEventListener('change', () => {
-      duplicateError.style.display = 'none';
-    });
+    if (defaultFolderId) {
+      const opt = select.querySelector<HTMLOptionElement>(`option[value="${defaultFolderId}"]`);
+      if (opt) select.value = defaultFolderId;
+    }
 
     const actions = document.createElement('div');
     actions.className = 'modal-actions';
@@ -78,7 +75,7 @@ export function showAddFavoriteModal(
     addBtn.textContent = 'Add';
 
     actions.append(cancelBtn, addBtn);
-    dialog.append(heading, titleLabel, titleInput, folderLabel, select, duplicateError, actions);
+    dialog.append(heading, titleLabel, titleInput, folderLabel, select, actions);
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
@@ -98,11 +95,6 @@ export function showAddFavoriteModal(
       const t = titleInput.value.trim();
       const folderId = select.value;
       if (!t || !folderId) return;
-      const selectedFolder = folders.find((f) => f.id === folderId);
-      if (selectedFolder?.allItems.some((item) => item.url === url)) {
-        duplicateError.style.display = 'block';
-        return;
-      }
       close({ folderId, title: t, url });
     };
 

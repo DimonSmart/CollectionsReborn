@@ -59,7 +59,7 @@ body {
   background: var(--bg);
 }
 
-/* ----- Top Bar (search + mode + add) ----------------------- */
+/* ----- Top Bar (search + add) ------------------------------ */
 .top-bar {
   display: flex;
   align-items: center;
@@ -89,41 +89,12 @@ body {
 }
 
 .search-input::placeholder { color: var(--text-muted); }
-
 .search-input:focus {
   border-color: var(--accent);
   background-color: var(--bg);
   box-shadow: 0 0 0 2px var(--accent-light);
 }
-
 .search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
-
-/* ----- Mode Select ----------------------------------------- */
-.mode-select {
-  height: 28px;
-  padding: 0 22px 0 7px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")
-    no-repeat right 6px center;
-  font: inherit;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-  flex-shrink: 0;
-  transition: border-color var(--transition);
-}
-
-.mode-select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-light);
-}
-
-.mode-select:hover { border-color: var(--text-muted); }
 
 /* ----- Icon Button ----------------------------------------- */
 .btn-icon {
@@ -145,7 +116,6 @@ body {
   color: #fff;
   border-color: var(--accent);
 }
-
 .btn-icon--primary:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
@@ -169,192 +139,210 @@ body {
 
 .btn--sm { padding: 3px 9px; font-size: 12px; }
 
-.btn--primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
+.btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn--secondary {
-  background: var(--bg);
-  color: var(--text-primary);
-  border-color: var(--border);
-}
+.btn--secondary { background: var(--bg); color: var(--text-primary); border-color: var(--border); }
 .btn--secondary:hover { background: var(--bg-hover); }
 
-.btn--danger {
-  background: var(--danger);
-  color: #fff;
-  border-color: var(--danger);
-}
+.btn--danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn--danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
 
-/* ----- Collections List ------------------------------------ */
-.collections-list {
+/* ----- Folder View Container ------------------------------- */
+.folder-view-container {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 8px 16px;
   scroll-behavior: smooth;
 }
 
-.collections-list::-webkit-scrollbar { width: 5px; }
-.collections-list::-webkit-scrollbar-track { background: transparent; }
-.collections-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-.collections-list::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.folder-view-container::-webkit-scrollbar { width: 5px; }
+.folder-view-container::-webkit-scrollbar-track { background: transparent; }
+.folder-view-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+.folder-view-container::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* ----- Collection Section ---------------------------------- */
-.collection-section {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  margin-bottom: 6px;
-  overflow: hidden;
-  background: var(--bg);
-  transition: box-shadow var(--transition);
+.folder-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
-.collection-section:last-child { margin-bottom: 0; }
-
-.collection-section:hover { box-shadow: var(--shadow-sm); }
-
-/* ----- Collection Header ----------------------------------- */
-.collection-header {
+/* ----- Navigation Header ----------------------------------- */
+.nav-header {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 8px;
+  gap: 4px;
+  padding: 5px 8px 4px;
+  border-bottom: 1px solid var(--border-light);
   background: var(--bg-secondary);
-  cursor: pointer;
-  user-select: none;
-  outline: none;
-  transition: background var(--transition);
-  min-height: 34px;
-}
-
-.collection-header:hover { background: var(--bg-hover); }
-
-.collection-header:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-
-.collection-chevron {
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  transition: transform var(--transition);
   flex-shrink: 0;
+  min-height: 32px;
 }
 
-.collection-chevron--open { transform: rotate(90deg); }
-
-.collection-folder-icon {
+.nav-back-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+  padding: 0;
+}
+
+.nav-back-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.nav-folder-title {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* ----- Bookmark List --------------------------------------- */
+.bookmark-list {
+  list-style: none;
+  padding: 4px 0 8px;
+  margin: 0;
+}
+
+/* ----- Bookmark Row ---------------------------------------- */
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  min-height: 28px;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--transition);
+  outline: none;
+  user-select: none;
+}
+
+.bookmark-row:hover { background: var(--bg-hover); }
+.bookmark-row:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ----- Drag Handle ----------------------------------------- */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--transition);
+  touch-action: none;
+}
+
+.bookmark-row:hover .drag-handle { opacity: 1; }
+.drag-handle:active { cursor: grabbing; }
+
+/* ----- Row Icon -------------------------------------------- */
+.row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
-.collection-title {
+.row-icon--folder { color: var(--text-secondary); }
+
+/* ----- Row Info -------------------------------------------- */
+.row-info {
   flex: 1;
-  font-weight: 600;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.row-title {
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  outline: none;
-  min-width: 0;
 }
 
-.collection-count {
+.row-meta {
+  flex-shrink: 0;
   font-size: 11px;
-  font-weight: 500;
   color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.row-meta--count {
   background: var(--bg-active);
   padding: 1px 5px;
   border-radius: 99px;
+  font-weight: 500;
+}
+
+/* ----- Row Menu Button ------------------------------------- */
+.row-menu-btn {
+  opacity: 0;
+  transition: opacity var(--transition);
   flex-shrink: 0;
 }
 
-.collection-action-btn {
-  opacity: 0;
-  transition: opacity var(--transition);
-}
-
-.collection-header:hover .collection-action-btn,
-.collection-header:focus-within .collection-action-btn {
+.bookmark-row:hover .row-menu-btn,
+.bookmark-row:focus-within .row-menu-btn {
   opacity: 1;
 }
 
-/* Compact mode — tighter folder header row */
-[data-mode="compact"] .collection-header {
-  padding: 3px 8px;
-  min-height: 26px;
-  gap: 4px;
-}
-
-[data-mode="compact"] .collection-section {
-  margin-bottom: 4px;
-}
-
-/* ----- Collection Body ------------------------------------- */
-.collection-body {
-  padding: 2px 0;
-}
-
-.collection-empty {
-  padding: 10px 14px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-style: italic;
-}
-
-.collection-show-more {
-  display: block;
-  width: 100%;
-  padding: 6px 14px;
-  background: none;
-  border: none;
-  border-top: 1px solid var(--border-light);
-  color: var(--accent);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--transition);
-}
-
-.collection-show-more:hover { background: var(--accent-light); }
-
-/* ----- Favorite Item --------------------------------------- */
-.favorite-item {
+/* ----- Action Button --------------------------------------- */
+.action-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  position: relative;
-  transition: background var(--transition);
-  outline: none;
-  min-width: 0;
+  transition: background var(--transition), color var(--transition);
+  padding: 0;
+  flex-shrink: 0;
 }
 
-.favorite-item:hover { background: var(--bg-hover); }
+.action-btn:hover { background: var(--bg-active); color: var(--text-primary); }
 
-.favorite-item:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
+/* ----- Drag State ------------------------------------------ */
+.bookmark-row--ghost {
+  opacity: 0.4;
 }
 
-.favorite-item--normal {
-  padding: 7px 8px;
-  min-height: 40px;
+.bookmark-row--dragging {
+  background: var(--bg);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-sm);
+  opacity: 0.9;
 }
 
-.favorite-item--compact {
-  padding: 3px 8px;
-  min-height: 28px;
-}
+/* Sortable drop indicator is the .sortable-chosen element */
+.sortable-chosen { background: var(--accent-light); }
 
 /* ----- Favicon --------------------------------------------- */
 .favicon-wrapper {
@@ -380,83 +368,10 @@ body {
   font-weight: 600;
   line-height: 1;
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
 }
-
-/* ----- Item Info ------------------------------------------- */
-.item-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.item-title {
-  font-size: 12.5px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  outline: none;
-}
-
-.item-domain {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-
-.item-compact-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-
-.item-compact-row .item-title {
-  flex: 1;
-  min-width: 0;
-}
-
-.item-domain--compact {
-  flex-shrink: 0;
-  font-size: 11px;
-}
-
-/* ----- Item Menu Button ------------------------------------ */
-.item-menu-btn {
-  opacity: 0;
-  transition: opacity var(--transition);
-  flex-shrink: 0;
-}
-
-.favorite-item:hover .item-menu-btn,
-.favorite-item:focus-within .item-menu-btn {
-  opacity: 1;
-}
-
-/* ----- Action Button --------------------------------------- */
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background var(--transition), color var(--transition);
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.action-btn:hover { background: var(--bg-active); color: var(--text-primary); }
 
 /* ----- Actions Dropdown Menu ------------------------------- */
 .actions-menu {
@@ -487,9 +402,7 @@ body {
 }
 
 .actions-menu__item:hover { background: var(--bg-hover); }
-
 .actions-menu__item--danger { color: var(--danger); }
-
 .actions-menu__item--danger:hover { background: var(--danger-light); }
 
 /* ----- Editor Error ---------------------------------------- */
@@ -513,9 +426,7 @@ body {
   padding: 16px;
 }
 
-.modal-overlay--visible {
-  background: rgba(0,0,0,0.35);
-}
+.modal-overlay--visible { background: rgba(0,0,0,0.35); }
 
 .modal-dialog {
   background: var(--bg);
@@ -590,6 +501,90 @@ body {
   margin-top: 2px;
 }
 
+/* ----- Move-to Dialog -------------------------------------- */
+.modal-dialog--move {
+  max-width: 300px;
+}
+
+.move-dialog-search {
+  margin-bottom: -2px;
+}
+
+.move-folder-list {
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  padding: 3px 0;
+  background: var(--bg);
+}
+
+.move-folder-list::-webkit-scrollbar { width: 4px; }
+.move-folder-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+.move-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  transition: background var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.move-folder-row:hover:not(.move-folder-row--disabled) { background: var(--bg-hover); }
+
+.move-folder-row--selected {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.move-folder-row--selected:hover { background: var(--accent-light); }
+
+.move-folder-row--disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.move-folder-row--current .move-folder-label {
+  font-style: italic;
+}
+
+.move-folder-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.move-folder-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.move-folder-badge {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-active);
+  padding: 1px 5px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.move-folder-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ----- Empty & Error States -------------------------------- */
 .empty-state {
   padding: 32px 16px;
@@ -621,9 +616,7 @@ body {
 }
 
 /* ----- Skeleton Loading ------------------------------------ */
-.skeleton-panel {
-  padding: 0;
-}
+.skeleton-panel { padding: 0; }
 
 .skeleton-search {
   height: 38px;
@@ -635,32 +628,16 @@ body {
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.skeleton-section {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  padding-bottom: 8px;
+  gap: 4px;
 }
 
 .skeleton-row {
-  height: 12px;
+  height: 28px;
   background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
-  border-radius: 4px;
-  margin: 8px 12px 0;
+  border-radius: var(--radius-sm);
 }
-
-.skeleton-row--header {
-  height: 14px;
-  margin: 10px 12px 8px;
-  width: 40%;
-}
-
-.skeleton-row--short { width: 55%; }
 
 @keyframes shimmer {
   0%   { background-position: 200% 0; }
