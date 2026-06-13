@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Collections Reborn",
+  "version": "0.1.0",
+  "description": "A beautiful collections-style side panel for browser favorites.",
+  "permissions": [
+    "bookmarks",
+    "sidePanel",
+    "storage",
+    "favicon",
+    "tabs"
+  ],
+  "action": {
+    "default_title": "Open Collections Reborn"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
