@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build",
     "test": "vitest run",
-    "package": "npm run check && npm test && node scripts/package-extension.mjs",
+    "verify:store-assets": "node scripts/verify-store-assets.mjs",
+    "package": "npm run check && npm test && npm run verify:store-assets && node scripts/package-extension.mjs",
     "package:chrome": "npm run package",
     "package:edge": "npm run package",
     "assets:store": "node scripts/create-store-assets.mjs"

@@ -90,8 +90,8 @@ function renderScenario(container: HTMLElement, name: string): void {
     ));
     window.setTimeout(() => {
       void showAddFavoriteModal(
-        'https://web.dev/articles/browser-side-panels',
-        'Designing useful browser side panels',
+        'https://developer.chrome.com/docs/extensions/',
+        'Chrome Extensions documentation',
         folderChoices(),
         '30',
       );
@@ -145,7 +145,7 @@ function mainEntries(): BookmarkEntryViewModel[] {
     folder('30', '1', 2, 'Design References', 12),
     link('101', '1', 3, 'Chrome Extensions documentation', 'https://developer.chrome.com/docs/extensions/', 'developer.chrome.com'),
     link('102', '1', 4, 'Microsoft Edge extensions', 'https://learn.microsoft.com/microsoft-edge/extensions-chromium/', 'learn.microsoft.com'),
-    link('103', '1', 5, 'Web platform dashboard', 'https://webstatus.dev/', 'webstatus.dev'),
+    link('103', '1', 5, 'MDN Web Docs', 'https://developer.mozilla.org/', 'developer.mozilla.org'),
     folder('40', '1', 6, 'Archive', 17),
     link('104', '1', 7, 'Accessibility patterns', 'https://www.w3.org/WAI/ARIA/apg/', 'w3.org'),
   ];
@@ -153,31 +153,31 @@ function mainEntries(): BookmarkEntryViewModel[] {
 
 function productResearchEntries(): BookmarkEntryViewModel[] {
   return [
-    folder('21', '10', 0, 'Side panel APIs', 4),
-    folder('22', '10', 1, 'Store requirements', 5),
-    link('201', '10', 2, 'Chrome Web Store images', 'https://developer.chrome.com/docs/webstore/images', 'developer.chrome.com'),
-    link('202', '10', 3, 'Edge add-ons publishing guide', 'https://learn.microsoft.com/microsoft-edge/extensions-chromium/publish/publish-extension', 'learn.microsoft.com'),
-    link('203', '10', 4, 'Bookmark manager UX notes', 'https://example.com/bookmark-manager-ux', 'example.com'),
+    folder('21', '10', 0, 'Chrome Developers', 4),
+    folder('22', '10', 1, 'Microsoft Learn', 5),
+    link('201', '10', 2, 'Chrome Extensions documentation', 'https://developer.chrome.com/docs/extensions/', 'developer.chrome.com'),
+    link('202', '10', 3, 'Microsoft Edge extensions', 'https://learn.microsoft.com/microsoft-edge/extensions-chromium/', 'learn.microsoft.com'),
+    link('203', '10', 4, 'MDN Web Docs', 'https://developer.mozilla.org/', 'developer.mozilla.org'),
     link('204', '10', 5, 'Manifest V3 overview', 'https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3', 'developer.chrome.com'),
   ];
 }
 
 function launchEntries(): BookmarkEntryViewModel[] {
   return [
-    link('201', '20', 0, 'Prepare privacy policy', 'https://example.com/privacy-policy', 'example.com'),
-    link('202', '20', 1, 'Write permission justifications', 'https://example.com/permissions', 'example.com'),
-    link('203', '20', 2, 'Capture store screenshots', 'https://example.com/screenshots', 'example.com'),
+    link('201', '20', 0, 'Microsoft Learn', 'https://learn.microsoft.com/', 'learn.microsoft.com'),
+    link('202', '20', 1, 'Chrome Developers', 'https://developer.chrome.com/', 'developer.chrome.com'),
+    link('203', '20', 2, 'MDN Web Docs', 'https://developer.mozilla.org/', 'developer.mozilla.org'),
     folder('204', '20', 3, 'Review queue', 3),
-    link('205', '20', 4, 'Certification testing notes', 'https://example.com/certification', 'example.com'),
+    link('205', '20', 4, 'Stack Overflow', 'https://stackoverflow.com/', 'stackoverflow.com'),
   ];
 }
 
 function designEntries(): BookmarkEntryViewModel[] {
   return [
     folder('31', '30', 0, 'Navigation', 3),
-    link('301', '30', 1, 'Side panel interaction patterns', 'https://web.dev/patterns', 'web.dev'),
-    link('302', '30', 2, 'Compact list design', 'https://example.com/compact-list-design', 'example.com'),
-    link('303', '30', 3, 'Bookmark organization examples', 'https://example.com/bookmark-organization', 'example.com'),
+    link('301', '30', 1, 'Chrome Developers', 'https://developer.chrome.com/', 'developer.chrome.com'),
+    link('302', '30', 2, 'MDN Web Docs', 'https://developer.mozilla.org/', 'developer.mozilla.org'),
+    link('303', '30', 3, 'Microsoft Learn', 'https://learn.microsoft.com/', 'learn.microsoft.com'),
   ];
 }
 
@@ -216,8 +216,8 @@ function folderChoices(): FolderChoice[] {
   return [
     { id: '1', title: 'Bookmarks Bar', path: 'Bookmarks Bar', depth: 0 },
     { id: '10', title: 'Product Research', path: 'Bookmarks Bar / Product Research', depth: 1 },
-    { id: '21', title: 'Side panel APIs', path: 'Bookmarks Bar / Product Research / Side panel APIs', depth: 2 },
-    { id: '22', title: 'Store requirements', path: 'Bookmarks Bar / Product Research / Store requirements', depth: 2 },
+    { id: '21', title: 'Chrome Developers', path: 'Bookmarks Bar / Product Research / Chrome Developers', depth: 2 },
+    { id: '22', title: 'Microsoft Learn', path: 'Bookmarks Bar / Product Research / Microsoft Learn', depth: 2 },
     { id: '20', title: 'Launch Reading List', path: 'Bookmarks Bar / Launch Reading List', depth: 1 },
     { id: '30', title: 'Design References', path: 'Bookmarks Bar / Design References', depth: 1 },
     { id: '40', title: 'Archive', path: 'Bookmarks Bar / Archive', depth: 1 },
@@ -240,9 +240,9 @@ function demoTree(): chrome.bookmarks.BookmarkTreeNode[] {
               parentId: '1',
               title: 'Product Research',
               children: [
-                { id: '21', parentId: '10', title: 'Side panel APIs', children: [] },
-                { id: '22', parentId: '10', title: 'Store requirements', children: [] },
-                { id: '203', parentId: '10', title: 'Bookmark manager UX notes', url: 'https://example.com/bookmark-manager-ux' },
+                { id: '21', parentId: '10', title: 'Chrome Developers', children: [] },
+                { id: '22', parentId: '10', title: 'Microsoft Learn', children: [] },
+                { id: '203', parentId: '10', title: 'MDN Web Docs', url: 'https://developer.mozilla.org/' },
               ],
             },
             { id: '20', parentId: '1', title: 'Launch Reading List', children: [] },

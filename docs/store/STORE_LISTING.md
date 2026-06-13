@@ -55,6 +55,26 @@ The extension accesses bookmarks and the active tab title/URL only to provide us
 
 Productivity
 
+## URLs
+
+Privacy policy URL:
+
+```text
+TODO: paste public privacy policy URL before submission
+```
+
+Support URL:
+
+```text
+https://github.com/DimonSmart/CollectionsReborn/issues
+```
+
+Repository URL:
+
+```text
+https://github.com/DimonSmart/CollectionsReborn
+```
+
 ## Search terms
 
 bookmarks

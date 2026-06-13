@@ -1,5 +1,20 @@
 # Publishing Checklist
 
+## Blocking checks
+
+- [ ] Screenshots are real PNG files, not JPEG files with `.png` extension.
+- [ ] All screenshots are 1280x800.
+- [ ] Promo images have correct PNG format and dimensions.
+- [ ] Logo images have correct PNG format and dimensions.
+- [ ] Privacy policy URL is public and opens without authentication.
+- [ ] Support URL is public.
+- [ ] `npm run verify:store-assets` passes.
+- [ ] `npm run package` passes.
+- [ ] Release zip does not contain `src/`, `node_modules/`, `docs/`, `scripts/`, tests or source maps.
+- [ ] Release zip contains `manifest.json` at root level.
+- [ ] Extension loads from `dist/` as unpacked in Chrome.
+- [ ] Extension loads from `dist/` as unpacked in Edge.
+
 ## Before packaging
 
 - [ ] `npm ci`

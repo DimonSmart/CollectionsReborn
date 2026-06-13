@@ -31,4 +31,5 @@ Collections Reborn does not send data to third-party services.
 
 ## Contact
 
-For questions or support, use the GitHub Issues page of the project repository.
+For questions or support, use the GitHub Issues page:
+https://github.com/DimonSmart/CollectionsReborn/issues
