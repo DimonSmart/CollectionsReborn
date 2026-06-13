@@ -67,3 +67,23 @@
 - [ ] Upload promotional tiles if available
 - [ ] Add certification testing notes
 - [ ] Submit for certification
+
+## GitHub Pages
+
+- [ ] Repository Settings -> Pages -> Source is set to GitHub Actions.
+- [ ] `Deploy GitHub Pages` workflow passed.
+- [ ] Privacy policy URL opens publicly:
+      https://dimonsmart.github.io/CollectionsReborn/privacy.html
+- [ ] Privacy policy URL is added to `docs/store/PUBLICATION_URLS.md`.
+- [ ] Privacy policy URL is added to `docs/store/STORE_LISTING.md`.
+- [ ] Support URL opens publicly:
+      https://github.com/DimonSmart/CollectionsReborn/issues
+
+## GitHub Actions
+
+- [ ] CI workflow passes on `main`.
+- [ ] CI workflow uploads extension package artifact.
+- [ ] CI workflow uploads store assets artifact.
+- [ ] Pages workflow deploys site successfully.
+- [ ] Release workflow creates a release from `v*` tag.
+- [ ] Release asset contains the extension zip.

@@ -109,6 +109,35 @@ npm run package
 
 The package is generated in `release/`.
 
+## Public Pages
+
+Privacy Policy:
+
+https://dimonsmart.github.io/CollectionsReborn/privacy.html
+
+Support:
+
+https://github.com/DimonSmart/CollectionsReborn/issues
+
+## Release package
+
+Run locally:
+
+```bash
+npm run package
+```
+
+CI also builds the release zip and uploads it as a workflow artifact.
+
+To create a GitHub Release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow creates a GitHub Release and attaches the extension zip from `release/`.
+
 ---
 
 ## Features

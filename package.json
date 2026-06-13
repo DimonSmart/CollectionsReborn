@@ -10,6 +10,7 @@
     "check": "npm run typecheck && npm run build",
     "test": "vitest run",
     "verify:store-assets": "node scripts/verify-store-assets.mjs",
+    "pages:build": "node scripts/build-pages.mjs",
     "package": "npm run check && npm test && npm run verify:store-assets && node scripts/package-extension.mjs",
     "package:chrome": "npm run package",
     "package:edge": "npm run package",

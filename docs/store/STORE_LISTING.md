@@ -60,7 +60,7 @@ Productivity
 Privacy policy URL:
 
 ```text
-TODO: paste public privacy policy URL before submission
+https://dimonsmart.github.io/CollectionsReborn/privacy.html
 ```
 
 Support URL:

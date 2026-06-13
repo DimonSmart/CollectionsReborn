@@ -5,23 +5,21 @@
 URL:
 
 ```text
-TODO: add public privacy policy URL
+https://dimonsmart.github.io/CollectionsReborn/privacy.html
 ```
-
-Recommended options:
-
-* GitHub Pages page generated from `PRIVACY.md`
-* Public repository file URL
-* Project website page
 
 ## Support
 
 URL:
 
 ```text
-TODO: add public support URL
+https://github.com/DimonSmart/CollectionsReborn/issues
 ```
 
-Recommended:
+## Repository
 
-* GitHub Issues page
+URL:
+
+```text
+https://github.com/DimonSmart/CollectionsReborn
+```
