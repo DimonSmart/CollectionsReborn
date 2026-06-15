@@ -1,7 +1,13 @@
-export interface MenuItem {
+export type MenuItem = MenuActionItem | MenuSeparatorItem;
+
+export interface MenuActionItem {
   label: string;
   action: () => void;
   variant?: 'danger';
+}
+
+export interface MenuSeparatorItem {
+  type: 'separator';
 }
 
 let currentMenu: HTMLElement | null = null;
@@ -15,6 +21,14 @@ export function showActionsMenu(anchor: HTMLElement, items: MenuItem[]): void {
   menu.className = 'actions-menu';
 
   for (const item of items) {
+    if (isSeparatorItem(item)) {
+      const separator = document.createElement('div');
+      separator.className = 'actions-menu__separator';
+      separator.setAttribute('role', 'separator');
+      menu.appendChild(separator);
+      continue;
+    }
+
     const btn = document.createElement('button');
     btn.className =
       'actions-menu__item' + (item.variant === 'danger' ? ' actions-menu__item--danger' : '');
@@ -47,6 +61,10 @@ export function showActionsMenu(anchor: HTMLElement, items: MenuItem[]): void {
     document.addEventListener('click', outsideHandler!, true);
     document.addEventListener('keydown', escHandler!, true);
   }, 0);
+}
+
+function isSeparatorItem(item: MenuItem): item is MenuSeparatorItem {
+  return 'type' in item && item.type === 'separator';
 }
 
 export function closeActionsMenu(): void {

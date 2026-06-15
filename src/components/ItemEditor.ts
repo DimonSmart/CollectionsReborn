@@ -1,15 +1,27 @@
 import { createModalShell } from './ModalShell.js';
 
-export async function showFolderEditor(currentName: string): Promise<string | null> {
+export interface FolderEditorOptions {
+  ariaLabel?: string;
+  heading?: string;
+  saveLabel?: string;
+}
+
+export async function showFolderEditor(
+  currentName: string,
+  options: FolderEditorOptions = {},
+): Promise<string | null> {
   return new Promise((resolve) => {
     const close = (result: string | null) => {
       shell.close();
       resolve(result);
     };
 
-    const shell = createModalShell({ ariaLabel: 'Edit folder name', onClose: () => close(null) });
+    const shell = createModalShell({
+      ariaLabel: options.ariaLabel ?? 'Edit folder name',
+      onClose: () => close(null),
+    });
 
-    const heading = el('div', 'modal-heading', 'Edit folder name');
+    const heading = el('div', 'modal-heading', options.heading ?? 'Edit folder name');
     const label = labelEl('editor-folder-name', 'Folder name');
     const input = inputEl('editor-folder-name', currentName);
     const errorEl = buildError();
@@ -24,6 +36,7 @@ export async function showFolderEditor(currentName: string): Promise<string | nu
         close(val);
       },
       () => close(null),
+      options.saveLabel,
     );
 
     input.addEventListener('keydown', (e) => {
@@ -148,7 +161,11 @@ function showError(el: HTMLElement, msg: string): void {
   el.style.display = 'block';
 }
 
-function buildActions(onSave: () => void, onCancel: () => void): HTMLElement {
+function buildActions(
+  onSave: () => void,
+  onCancel: () => void,
+  saveLabel: string = 'Save',
+): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'modal-actions';
 
@@ -159,7 +176,7 @@ function buildActions(onSave: () => void, onCancel: () => void): HTMLElement {
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'btn btn--primary btn--sm';
-  saveBtn.textContent = 'Save';
+  saveBtn.textContent = saveLabel;
   saveBtn.addEventListener('click', onSave);
 
   wrap.append(cancelBtn, saveBtn);

@@ -1,6 +1,7 @@
 import { createFolderView } from '../components/FolderView.js';
 import { showMoveToDialog } from '../components/MoveToDialog.js';
 import { showAddFavoriteModal } from '../components/AddFavoriteModal.js';
+import { showActionsMenu } from '../components/ActionsMenu.js';
 import type { BookmarkEntryViewModel, FolderChoice, FolderViewCallbacks } from '../types.js';
 
 const app = document.getElementById('app');
@@ -38,9 +39,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     viewContainer.appendChild(createFolderView(
       { id: '10', title: 'Product Research' },
       productResearchEntries(),
-      true,
       false,
-      true,
       true,
       callbacks,
     ));
@@ -51,9 +50,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     const view = createFolderView(
       { id: '20', title: 'Launch Reading List' },
       launchEntries(),
-      true,
       false,
-      true,
       true,
       callbacks,
     );
@@ -66,9 +63,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     viewContainer.appendChild(createFolderView(
       { id: '10', title: 'Product Research' },
       productResearchEntries(),
-      true,
       false,
-      true,
       true,
       callbacks,
     ));
@@ -82,9 +77,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     viewContainer.appendChild(createFolderView(
       { id: '30', title: 'Design References' },
       designEntries(),
-      true,
       false,
-      true,
       true,
       callbacks,
     ));
@@ -108,8 +101,6 @@ function renderScenario(container: HTMLElement, name: string): void {
     { id: '1', title: 'Bookmarks Bar' },
     mainEntries(),
     false,
-    false,
-    true,
     true,
     callbacks,
   ));
@@ -128,13 +119,36 @@ function buildTopBar(name: string): HTMLElement {
     searchInput.value = 'docs';
   }
 
+  const upBtn = document.createElement('button');
+  upBtn.className = 'btn-icon top-folder-up-btn';
+  upBtn.setAttribute('aria-label', 'Go to parent folder');
+  upBtn.title = 'Go to parent folder';
+  upBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+
   const addBtn = document.createElement('button');
   addBtn.className = 'btn-icon btn-icon--primary';
   addBtn.setAttribute('aria-label', 'Add current page to favorites');
   addBtn.title = 'Add current page to favorites';
   addBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
-  topBar.append(searchInput, addBtn);
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'btn-icon top-menu-btn';
+  menuBtn.setAttribute('aria-label', 'Folder actions');
+  menuBtn.title = 'Folder actions';
+  menuBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>';
+  menuBtn.addEventListener('click', () => {
+    showActionsMenu(menuBtn, [
+      { label: 'New folder…', action: () => undefined },
+      { type: 'separator' },
+      { label: 'Folders first', action: () => undefined },
+      { label: 'Links first', action: () => undefined },
+      { label: 'Sort by title A-Z', action: () => undefined },
+      { label: 'Sort by title Z-A', action: () => undefined },
+      { label: 'Sort links by domain', action: () => undefined },
+    ]);
+  });
+
+  topBar.append(upBtn, searchInput, addBtn, menuBtn);
   return topBar;
 }
 

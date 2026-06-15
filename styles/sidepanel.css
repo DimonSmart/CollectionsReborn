@@ -59,7 +59,7 @@ body {
   background: var(--bg);
 }
 
-/* ----- Top Bar (search + add) ------------------------------ */
+/* ----- Top Bar --------------------------------------------- */
 .top-bar {
   display: flex;
   align-items: center;
@@ -121,6 +121,23 @@ body {
   border-color: var(--accent-hover);
 }
 
+.top-folder-up-btn,
+.top-menu-btn {
+  color: var(--text-secondary);
+}
+
+.top-folder-up-btn:hover:not(:disabled),
+.top-menu-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.top-folder-up-btn:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* ----- Shared Button Styles -------------------------------- */
 .btn {
   display: inline-flex;
@@ -165,54 +182,6 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-}
-
-/* ----- Navigation Header ----------------------------------- */
-.nav-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 8px 4px;
-  border-bottom: 1px solid var(--border-light);
-  background: var(--bg-secondary);
-  flex-shrink: 0;
-  min-height: 32px;
-}
-
-.nav-back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background var(--transition), color var(--transition);
-  padding: 0;
-}
-
-.nav-back-btn:hover {
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-
-.nav-sort-btn {
-  flex-shrink: 0;
-}
-
-.nav-folder-title {
-  flex: 1;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
 /* ----- Bookmark List --------------------------------------- */
@@ -408,6 +377,12 @@ body {
 .actions-menu__item:hover { background: var(--bg-hover); }
 .actions-menu__item--danger { color: var(--danger); }
 .actions-menu__item--danger:hover { background: var(--danger-light); }
+
+.actions-menu__separator {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--border-light);
+}
 
 /* ----- Editor Error ---------------------------------------- */
 .editor-error {

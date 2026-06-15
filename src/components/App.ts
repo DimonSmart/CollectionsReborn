@@ -14,6 +14,7 @@ import { showConfirm, showInfo } from './ConfirmModal.js';
 import { showLinkEditor, showFolderEditor } from './ItemEditor.js';
 import { showMoveToDialog } from './MoveToDialog.js';
 import { showAddFavoriteModal } from './AddFavoriteModal.js';
+import { showActionsMenu, type MenuItem } from './ActionsMenu.js';
 import {
   findNodeById,
   getVirtualRootId,
@@ -67,6 +68,13 @@ export class App {
     const topBar = document.createElement('div');
     topBar.className = 'top-bar';
 
+    const upBtn = document.createElement('button');
+    upBtn.className = 'btn-icon top-folder-up-btn';
+    upBtn.setAttribute('aria-label', 'Go to parent folder');
+    upBtn.title = 'Go to parent folder';
+    upBtn.innerHTML = svgFolderUp();
+    upBtn.addEventListener('click', () => this.navigateBack());
+
     const searchInput = document.createElement('input');
     searchInput.type = 'search';
     searchInput.className = 'search-input';
@@ -94,7 +102,17 @@ export class App {
     addBtn.innerHTML = svgPlus();
     addBtn.addEventListener('click', () => this.handleAddFavorite());
 
-    topBar.append(searchInput, addBtn);
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'btn-icon top-menu-btn';
+    menuBtn.setAttribute('aria-label', 'Folder actions');
+    menuBtn.title = 'Folder actions';
+    menuBtn.innerHTML = svgEllipsis();
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showTopMenu(menuBtn);
+    });
+
+    topBar.append(upBtn, searchInput, addBtn, menuBtn);
     this.root.appendChild(topBar);
 
     const viewContainer = document.createElement('main');
@@ -119,6 +137,7 @@ export class App {
     }
 
     this.renderFolder(container, currentNode);
+    this.updateTopBar();
   }
 
   private renderFolder(
@@ -129,16 +148,12 @@ export class App {
     const filtered = filterEntries(entries, this.searchText);
     const isSearching = this.searchText.trim().length > 0;
     const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
-    const canGoBack = canNavigateBack(this.bookmarkTree, this.currentFolderId);
-    const canSort = !isSearching && !isVirtualRoot && filtered.length > 1;
     const canReorder = !isSearching && !isVirtualRoot;
 
     const view = createFolderView(
       { id: node.id, title: this.displayTitle(node) },
       filtered,
-      canGoBack,
       isSearching,
-      canSort,
       canReorder,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
@@ -242,6 +257,67 @@ export class App {
     }
   }
 
+  private showTopMenu(anchor: HTMLElement): void {
+    const node = findNodeById(this.bookmarkTree, this.currentFolderId);
+    if (!node) return;
+
+    const entries = buildFolderEntries(node, this.faviconService);
+    const isSearching = this.searchText.trim().length > 0;
+    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
+    const canSort = !isSearching && !isVirtualRoot && entries.length > 1;
+
+    const items: MenuItem[] = [{ label: 'New folder…', action: () => this.createFolder() }];
+
+    if (canSort) {
+      items.push({ type: 'separator' });
+      items.push({
+        label: 'Folders first',
+        action: () => void this.sortFolder('folders-first'),
+      });
+      items.push({
+        label: 'Links first',
+        action: () => void this.sortFolder('links-first'),
+      });
+      items.push({
+        label: 'Sort by title A-Z',
+        action: () => void this.sortFolder('title-asc'),
+      });
+      items.push({
+        label: 'Sort by title Z-A',
+        action: () => void this.sortFolder('title-desc'),
+      });
+      items.push({
+        label: 'Sort links by domain',
+        action: () => void this.sortFolder('domain-asc'),
+      });
+    }
+
+    showActionsMenu(anchor, items);
+  }
+
+  private async createFolder(): Promise<void> {
+    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
+    if (isVirtualRoot) {
+      await showInfo('Open a bookmark folder before creating a folder.');
+      return;
+    }
+
+    const title = await showFolderEditor('New folder', {
+      ariaLabel: 'Create new folder',
+      heading: 'New folder',
+      saveLabel: 'Create',
+    });
+    if (!title) return;
+
+    try {
+      await this.bookmarksService.createFolder(this.currentFolderId, title);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not create folder: ${String(err)}`);
+      await this.reloadTree();
+    }
+  }
+
   private async handleAddFavorite(): Promise<void> {
     const tab = await this.tabsService.getCurrentTab();
     if (!tab) {
@@ -270,6 +346,15 @@ export class App {
   private async reloadTree(): Promise<void> {
     this.bookmarkTree = await this.bookmarksService.getTree();
     this.render();
+  }
+
+  private updateTopBar(): void {
+    const upBtn = this.root.querySelector<HTMLButtonElement>('.top-folder-up-btn');
+    if (!upBtn) return;
+
+    const canGoUp = canNavigateBack(this.bookmarkTree, this.currentFolderId);
+    upBtn.disabled = !canGoUp;
+    upBtn.setAttribute('aria-disabled', String(!canGoUp));
   }
 
   private attachBookmarkListeners(): void {
@@ -318,4 +403,12 @@ function escapeHtml(s: string): string {
 
 function svgPlus(): string {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+}
+
+function svgFolderUp(): string {
+  return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`;
+}
+
+function svgEllipsis(): string {
+  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>`;
 }
