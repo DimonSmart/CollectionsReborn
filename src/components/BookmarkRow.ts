@@ -1,4 +1,4 @@
-import type { BookmarkEntryViewModel, FolderEntryViewModel, LinkEntryViewModel, FolderViewCallbacks } from '../types.js';
+import type { BookmarkEntryViewModel, FolderEntryViewModel, FolderViewCallbacks, LinkEntryViewModel } from '../types.js';
 import { showActionsMenu } from './ActionsMenu.js';
 
 export function createBookmarkRow(
@@ -107,6 +107,10 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
       { label: 'Open', action: () => callbacks.onNavigateToFolder(entry.id) },
       { label: 'Rename…', action: () => callbacks.onRenameFolder(entry as FolderEntryViewModel) },
       { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
+      { type: 'separator' as const },
+      { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
+      { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },
+      { type: 'separator' as const },
       { label: 'Delete', variant: 'danger' as const, action: () => callbacks.onDeleteItem(entry) },
     ];
   } else {
@@ -114,6 +118,10 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
       { label: 'Open', action: () => callbacks.onOpenLink((entry as LinkEntryViewModel).url) },
       { label: 'Edit…', action: () => callbacks.onEditLink(entry as LinkEntryViewModel) },
       { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
+      { type: 'separator' as const },
+      { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
+      { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },
+      { type: 'separator' as const },
       { label: 'Delete', variant: 'danger' as const, action: () => callbacks.onDeleteItem(entry) },
     ];
   }

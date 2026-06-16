@@ -19,6 +19,8 @@ export interface LinkEntryViewModel extends BaseEntryViewModel {
 
 export type BookmarkEntryViewModel = FolderEntryViewModel | LinkEntryViewModel;
 
+export type FolderInsertPlacement = 'before' | 'after';
+
 export type SortAction =
   | 'folders-first'
   | 'links-first'
@@ -34,6 +36,7 @@ export interface FolderViewCallbacks {
   onDeleteItem: (item: BookmarkEntryViewModel) => void;
   onRenameFolder: (item: FolderEntryViewModel) => void;
   onMoveItem: (item: BookmarkEntryViewModel) => void;
+  onCreateFolderNearItem: (item: BookmarkEntryViewModel, placement: FolderInsertPlacement) => void;
   onReorder: (itemId: string, newIndex: number) => void;
   onSortFolder: (action: SortAction) => void;
 }

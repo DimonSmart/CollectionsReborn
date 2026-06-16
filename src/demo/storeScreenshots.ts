@@ -31,6 +31,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     onDeleteItem: () => undefined,
     onRenameFolder: () => undefined,
     onMoveItem: () => undefined,
+    onCreateFolderNearItem: () => undefined,
     onReorder: () => undefined,
     onSortFolder: () => undefined,
   };

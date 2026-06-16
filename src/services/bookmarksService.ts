@@ -18,8 +18,9 @@ export class BookmarksService {
   async createFolder(
     parentId: string,
     title: string,
+    index?: number,
   ): Promise<chrome.bookmarks.BookmarkTreeNode> {
-    return chrome.bookmarks.create({ parentId, title });
+    return chrome.bookmarks.create({ parentId, title, index });
   }
 
   async updateTitle(id: string, title: string): Promise<chrome.bookmarks.BookmarkTreeNode> {

@@ -1,5 +1,6 @@
 import type {
   BookmarkEntryViewModel,
+  FolderInsertPlacement,
   FolderEntryViewModel,
   LinkEntryViewModel,
   SortAction,
@@ -163,6 +164,7 @@ export class App {
         onDeleteItem: (item) => this.deleteItem(item),
         onRenameFolder: (item) => this.renameFolder(item),
         onMoveItem: (item) => this.moveItem(item),
+        onCreateFolderNearItem: (item, placement) => this.createFolderNearItem(item, placement),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
         onSortFolder: (action) => this.sortFolder(action),
       },
@@ -311,6 +313,27 @@ export class App {
 
     try {
       await this.bookmarksService.createFolder(this.currentFolderId, title);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not create folder: ${String(err)}`);
+      await this.reloadTree();
+    }
+  }
+
+  private async createFolderNearItem(
+    item: BookmarkEntryViewModel,
+    placement: FolderInsertPlacement,
+  ): Promise<void> {
+    const targetIndex = placement === 'before' ? item.index : item.index + 1;
+    const title = await showFolderEditor('New folder', {
+      ariaLabel: 'Create new folder',
+      heading: 'New folder',
+      saveLabel: 'Create',
+    });
+    if (!title) return;
+
+    try {
+      await this.bookmarksService.createFolder(item.parentId, title, targetIndex);
       await this.reloadTree();
     } catch (err) {
       await showInfo(`Could not create folder: ${String(err)}`);
