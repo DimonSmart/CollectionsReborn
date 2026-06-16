@@ -257,7 +257,10 @@ export class App {
       return;
     }
 
-    const confirmed = await showConfirm(`Update "${item.title}" URL to the active page?`);
+    const confirmed = await showConfirm(`Update "${item.title}" URL to the active page?`, {
+      confirmLabel: 'Update',
+      confirmVariant: 'primary',
+    });
     if (!confirmed) return;
 
     await this.previewDb.delete(getLinkPreviewKey(item.id));

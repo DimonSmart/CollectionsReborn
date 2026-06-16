@@ -1,4 +1,4 @@
-export type PreviewSize = 'small' | 'medium' | 'large';
+export type PreviewSize = 'small' | 'medium' | 'large' | 'xlarge';
 
 export const PREVIEW_SIZE_OPTIONS: Record<PreviewSize, {
   label: string;
@@ -24,11 +24,17 @@ export const PREVIEW_SIZE_OPTIONS: Record<PreviewSize, {
     height: 90,
     rowHeight: 100,
   },
+  xlarge: {
+    label: 'Extra large 352×198',
+    width: 352,
+    height: 198,
+    rowHeight: 248,
+  },
 };
 
 export const DEFAULT_PREVIEW_SIZE: PreviewSize = 'medium';
-export const STORED_THUMBNAIL_WIDTH = 160;
-export const STORED_THUMBNAIL_HEIGHT = 90;
+export const STORED_THUMBNAIL_WIDTH = 352;
+export const STORED_THUMBNAIL_HEIGHT = 198;
 
 export interface PreviewSettings {
   enabled: boolean;
@@ -82,5 +88,5 @@ export class PreviewSettingsService {
 }
 
 function isPreviewSize(value: unknown): value is PreviewSize {
-  return value === 'small' || value === 'medium' || value === 'large';
+  return value === 'small' || value === 'medium' || value === 'large' || value === 'xlarge';
 }

@@ -34,7 +34,12 @@ export function showInfo(message: string): Promise<void> {
   });
 }
 
-export function showConfirm(message: string): Promise<boolean> {
+type ConfirmOptions = {
+  confirmLabel?: string;
+  confirmVariant?: 'primary' | 'danger';
+};
+
+export function showConfirm(message: string, options: ConfirmOptions = {}): Promise<boolean> {
   return new Promise((resolve) => {
     const close = (result: boolean) => {
       shell.close();
@@ -56,8 +61,8 @@ export function showConfirm(message: string): Promise<boolean> {
     cancelBtn.addEventListener('click', () => close(false));
 
     const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn--danger';
-    confirmBtn.textContent = 'Delete';
+    confirmBtn.className = `btn btn--${options.confirmVariant ?? 'danger'}`;
+    confirmBtn.textContent = options.confirmLabel ?? 'Delete';
     confirmBtn.addEventListener('click', () => close(true));
 
     actions.append(cancelBtn, confirmBtn);
