@@ -4,6 +4,9 @@ import { FaviconService } from './services/faviconService.js';
 import { StorageService } from './services/storageService.js';
 import { BookmarkOperationsService } from './services/bookmarkOperationsService.js';
 import { BrowserTabsService } from './services/browserTabsService.js';
+import { PreviewDbService } from './services/previewDbService.js';
+import { PreviewSettingsService } from './services/previewSettingsService.js';
+import { PreviewCaptureService } from './services/previewCaptureService.js';
 
 async function boot(): Promise<void> {
   const container = document.getElementById('app');
@@ -14,6 +17,9 @@ async function boot(): Promise<void> {
   const storageService = new StorageService();
   const operationsService = new BookmarkOperationsService(bookmarksService);
   const tabsService = new BrowserTabsService();
+  const previewDb = new PreviewDbService();
+  const previewSettings = new PreviewSettingsService();
+  const previewCapture = new PreviewCaptureService(previewDb, previewSettings);
 
   const app = new App(
     container,
@@ -22,6 +28,9 @@ async function boot(): Promise<void> {
     storageService,
     operationsService,
     tabsService,
+    previewDb,
+    previewSettings,
+    previewCapture,
   );
 
   try {

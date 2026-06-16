@@ -3,6 +3,16 @@ export interface BaseEntryViewModel {
   parentId: string;
   index: number;
   title: string;
+  preview?: PreviewViewModel;
+}
+
+export type PreviewStatus = 'none' | 'pending' | 'ok' | 'error' | 'skipped';
+
+export interface PreviewViewModel {
+  status: PreviewStatus;
+  objectUrl?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface FolderEntryViewModel extends BaseEntryViewModel {
@@ -31,12 +41,14 @@ export type SortAction =
 export interface FolderViewCallbacks {
   onNavigateToFolder: (folderId: string) => void;
   onNavigateBack: () => void;
-  onOpenLink: (url: string) => void;
+  onOpenLink: (item: LinkEntryViewModel) => void;
   onEditLink: (item: LinkEntryViewModel) => void;
   onDeleteItem: (item: BookmarkEntryViewModel) => void;
   onRenameFolder: (item: FolderEntryViewModel) => void;
   onMoveItem: (item: BookmarkEntryViewModel) => void;
   onCreateFolderNearItem: (item: BookmarkEntryViewModel, placement: FolderInsertPlacement) => void;
+  onGeneratePreview: (item: BookmarkEntryViewModel) => void;
+  onRemovePreview: (item: BookmarkEntryViewModel) => void;
   onReorder: (itemId: string, newIndex: number) => void;
   onSortFolder: (action: SortAction) => void;
 }

@@ -2,6 +2,7 @@ import { createFolderView } from '../components/FolderView.js';
 import { showMoveToDialog } from '../components/MoveToDialog.js';
 import { showAddFavoriteModal } from '../components/AddFavoriteModal.js';
 import { showActionsMenu } from '../components/ActionsMenu.js';
+import { DEFAULT_PREVIEW_SIZE } from '../services/previewSettingsService.js';
 import type { BookmarkEntryViewModel, FolderChoice, FolderViewCallbacks } from '../types.js';
 
 const app = document.getElementById('app');
@@ -32,6 +33,8 @@ function renderScenario(container: HTMLElement, name: string): void {
     onRenameFolder: () => undefined,
     onMoveItem: () => undefined,
     onCreateFolderNearItem: () => undefined,
+    onGeneratePreview: () => undefined,
+    onRemovePreview: () => undefined,
     onReorder: () => undefined,
     onSortFolder: () => undefined,
   };
@@ -42,6 +45,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       productResearchEntries(),
       false,
       true,
+      DEFAULT_PREVIEW_SIZE,
       callbacks,
     ));
     return;
@@ -53,6 +57,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       launchEntries(),
       false,
       true,
+      DEFAULT_PREVIEW_SIZE,
       callbacks,
     );
     viewContainer.appendChild(view);
@@ -66,6 +71,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       productResearchEntries(),
       false,
       true,
+      DEFAULT_PREVIEW_SIZE,
       callbacks,
     ));
     window.setTimeout(() => {
@@ -80,6 +86,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       designEntries(),
       false,
       true,
+      DEFAULT_PREVIEW_SIZE,
       callbacks,
     ));
     window.setTimeout(() => {
@@ -103,6 +110,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     mainEntries(),
     false,
     true,
+    DEFAULT_PREVIEW_SIZE,
     callbacks,
   ));
 }

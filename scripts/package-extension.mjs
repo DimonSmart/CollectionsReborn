@@ -10,7 +10,8 @@ const distDir = join(root, 'dist');
 const releaseDir = join(root, 'release');
 const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 const zipPath = join(releaseDir, `collections-reborn-${packageJson.version}.zip`);
-const allowedPermissions = new Set(['bookmarks', 'sidePanel', 'storage', 'favicon', 'tabs']);
+const allowedPermissions = new Set(['bookmarks', 'sidePanel', 'storage', 'favicon', 'tabs', 'activeTab']);
+const allowedHostPermissions = new Set(['<all_urls>']);
 
 const requiredFiles = [
   'manifest.json',
@@ -203,8 +204,14 @@ function assertManifest(manifest) {
     throw new Error(`Manifest contains unexpected permission: ${unexpectedPermission}`);
   }
 
-  if (manifest.host_permissions && manifest.host_permissions.length > 0) {
-    throw new Error('Manifest host_permissions must be absent or empty.');
+  const hostPermissions = manifest.host_permissions ?? [];
+  if (!Array.isArray(hostPermissions)) {
+    throw new Error('Manifest host_permissions must be an array when present.');
+  }
+
+  const unexpectedHostPermission = hostPermissions.find((permission) => !allowedHostPermissions.has(permission));
+  if (unexpectedHostPermission) {
+    throw new Error(`Manifest contains unexpected host permission: ${unexpectedHostPermission}`);
   }
 }
 

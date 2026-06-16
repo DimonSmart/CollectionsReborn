@@ -33,7 +33,7 @@
 - [ ] Test drag-and-drop reorder
 - [ ] Test delete bookmark
 - [ ] Test delete folder
-- [ ] Verify no host permissions
+- [ ] Verify host permission justification covers local preview capture
 - [ ] Verify no remote code
 - [ ] Verify privacy policy URL is public
 - [ ] Verify screenshots are based on the real UI

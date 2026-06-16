@@ -41,7 +41,9 @@ Collections Reborn provides a collections-style side panel for browsing, organiz
 | sidePanel | Required to display the extension UI in the browser side panel. |
 | storage | Required to remember the last opened bookmark folder ID. No bookmark data is stored there. |
 | favicon | Required to show site favicons for bookmark links using the browser's built-in favicon API. |
-| tabs | Required only to read the active tab title and URL when the user clicks "Add current page". The extension does not read page content and does not request host permissions. |
+| tabs | Required to read tab metadata and open bookmark links for preview generation. |
+| activeTab | Required to work with the currently active tab when the user adds or previews the current page. |
+| `<all_urls>` host access | Required by the browser `captureVisibleTab` API to generate local bookmark preview thumbnails. Preview images are stored locally and are not sent to any server. |
 
 ## Remote code declaration
 

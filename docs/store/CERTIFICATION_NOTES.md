@@ -24,4 +24,4 @@ All bookmark data remains in the browser's built-in bookmarks storage.
 The extension does not use an external backend.
 The extension does not collect analytics.
 The extension does not use remote code.
-The extension does not request host permissions.
+The extension requests all-sites host access because the browser requires it for `chrome.tabs.captureVisibleTab`, which is used to create local bookmark preview thumbnails. Preview images remain local.

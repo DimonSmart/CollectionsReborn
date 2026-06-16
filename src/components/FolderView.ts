@@ -1,5 +1,6 @@
 import Sortable from 'sortablejs';
 import type { BookmarkEntryViewModel, FolderViewCallbacks } from '../types.js';
+import { DEFAULT_PREVIEW_SIZE, PREVIEW_SIZE_OPTIONS, type PreviewSize } from '../services/previewSettingsService.js';
 import { createBookmarkRow } from './BookmarkRow.js';
 
 export interface FolderInfo {
@@ -21,6 +22,7 @@ export function createFolderView(
   entries: BookmarkEntryViewModel[],
   isSearching: boolean,
   canReorder: boolean,
+  previewSize: PreviewSize,
   callbacks: FolderViewCallbacks,
 ): HTMLElement {
   destroyActiveSortable();
@@ -41,6 +43,11 @@ export function createFolderView(
   const list = document.createElement('ul');
   list.className = 'bookmark-list';
   list.setAttribute('role', 'list');
+  const previewSizeOption = PREVIEW_SIZE_OPTIONS[previewSize] ?? PREVIEW_SIZE_OPTIONS[DEFAULT_PREVIEW_SIZE];
+  list.dataset.previewSize = previewSize;
+  list.style.setProperty('--row-preview-width', `${previewSizeOption.width}px`);
+  list.style.setProperty('--row-preview-height', `${previewSizeOption.height}px`);
+  list.style.setProperty('--bookmark-row-min-height', `${previewSizeOption.rowHeight}px`);
 
   for (const entry of entries) {
     list.appendChild(createBookmarkRow(entry, callbacks));

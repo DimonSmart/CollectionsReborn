@@ -27,7 +27,7 @@ export function createBookmarkRow(
     if (entry.type === 'folder') {
       callbacks.onNavigateToFolder(entry.id);
     } else {
-      callbacks.onOpenLink(entry.url);
+      callbacks.onOpenLink(entry);
     }
   });
 
@@ -36,13 +36,25 @@ export function createBookmarkRow(
 
 function buildIcon(entry: BookmarkEntryViewModel): HTMLElement {
   const el = document.createElement('span');
-  el.className = 'row-icon';
+  el.className = 'row-preview';
   el.setAttribute('aria-hidden', 'true');
 
+  if (entry.preview?.status === 'ok' && entry.preview.objectUrl) {
+    const img = document.createElement('img');
+    img.src = entry.preview.objectUrl;
+    img.alt = '';
+    el.appendChild(img);
+    return el;
+  }
+
   if (entry.type === 'folder') {
-    el.classList.add('row-icon--folder');
-    el.innerHTML = svgFolder();
+    const fallback = document.createElement('span');
+    fallback.className = 'row-preview-fallback row-preview-fallback--folder';
+    fallback.innerHTML = svgFolder();
+    el.appendChild(fallback);
   } else {
+    const fallback = document.createElement('span');
+    fallback.className = 'row-preview-fallback';
     const img = document.createElement('img');
     img.src = entry.faviconUrl;
     img.width = 16;
@@ -59,7 +71,13 @@ function buildIcon(entry: BookmarkEntryViewModel): HTMLElement {
       fallback.textContent = entry.domain.charAt(0).toUpperCase() || '?';
       el.appendChild(fallback);
     });
-    el.appendChild(img);
+    fallback.appendChild(img);
+    if (entry.preview?.status === 'pending') {
+      const pending = document.createElement('span');
+      pending.className = 'row-preview-pending';
+      fallback.appendChild(pending);
+    }
+    el.appendChild(fallback);
   }
 
   return el;
@@ -107,6 +125,10 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
       { label: 'Open', action: () => callbacks.onNavigateToFolder(entry.id) },
       { label: 'Rename…', action: () => callbacks.onRenameFolder(entry as FolderEntryViewModel) },
       { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
+      { label: 'Generate preview', action: () => callbacks.onGeneratePreview(entry) },
+      ...(entry.preview && entry.preview.status !== 'none'
+        ? [{ label: 'Remove preview', action: () => callbacks.onRemovePreview(entry) }]
+        : []),
       { type: 'separator' as const },
       { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
       { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },
@@ -115,9 +137,15 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
     ];
   } else {
     return [
-      { label: 'Open', action: () => callbacks.onOpenLink((entry as LinkEntryViewModel).url) },
+      { label: 'Open', action: () => callbacks.onOpenLink(entry as LinkEntryViewModel) },
       { label: 'Edit…', action: () => callbacks.onEditLink(entry as LinkEntryViewModel) },
       { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
+      ...(!entry.preview || entry.preview.status !== 'ok'
+        ? [{ label: 'Generate preview', action: () => callbacks.onGeneratePreview(entry) }]
+        : []),
+      ...(entry.preview && entry.preview.status !== 'none'
+        ? [{ label: 'Remove preview', action: () => callbacks.onRemovePreview(entry) }]
+        : []),
       { type: 'separator' as const },
       { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
       { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },

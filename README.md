@@ -87,9 +87,11 @@ collections-reborn/
 | `sidePanel` | Show the side panel UI |
 | `storage`   | Persist last opened folder ID |
 | `favicon`   | Load site favicons via the browser's built-in favicon API |
-| `tabs`      | Get the current active tab URL when adding a page to favorites |
+| `tabs`      | Read tab metadata and open bookmark links for preview generation |
+| `activeTab` | Work with the current tab when adding or previewing the current page |
+| `<all_urls>` | Generate local bookmark preview thumbnails with the browser capture API |
 
-No host permissions (`http://*/*`, `https://*/*`) are requested.
+Host access is used only for local preview capture. Preview images are stored in the browser and are not uploaded.
 
 ---
 

@@ -10,6 +10,14 @@ import type { FaviconService } from '../services/faviconService.js';
 import type { StorageService } from '../services/storageService.js';
 import type { BookmarkOperationsService } from '../services/bookmarkOperationsService.js';
 import type { BrowserTabsService } from '../services/browserTabsService.js';
+import type { PreviewDbService, PreviewRecord } from '../services/previewDbService.js';
+import {
+  DEFAULT_PREVIEW_SIZE,
+  PREVIEW_SETTINGS_STORAGE_KEY,
+  type PreviewSettingsService,
+  type PreviewSize,
+} from '../services/previewSettingsService.js';
+import type { PreviewCaptureService } from '../services/previewCaptureService.js';
 import { createFolderView } from './FolderView.js';
 import { showConfirm, showInfo } from './ConfirmModal.js';
 import { showLinkEditor, showFolderEditor } from './ItemEditor.js';
@@ -26,6 +34,9 @@ import {
   filterEntries,
   collectAllFolders,
 } from '../domain/bookmarkTree.js';
+import { getFolderPreviewKey, getLinkPreviewKey } from '../domain/previewKeys.js';
+import { PREVIEW_CAPTURE_PERMISSION_ORIGINS } from '../domain/previewPermissions.js';
+import { validatePreviewUrl } from '../domain/previewUrlRules.js';
 
 export class App {
   private root: HTMLElement;
@@ -33,6 +44,9 @@ export class App {
   private currentFolderId: string = '0';
   private searchText: string = '';
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  private previewObjectUrls: string[] = [];
+  private previewSize: PreviewSize = DEFAULT_PREVIEW_SIZE;
+  private renderVersion = 0;
 
   constructor(
     private readonly container: HTMLElement,
@@ -41,6 +55,9 @@ export class App {
     private readonly storageService: StorageService,
     private readonly operationsService: BookmarkOperationsService,
     private readonly tabsService: BrowserTabsService,
+    private readonly previewDb: PreviewDbService,
+    private readonly previewSettings: PreviewSettingsService,
+    private readonly previewCapture: PreviewCaptureService,
   ) {
     this.root = document.createElement('div');
     this.root.className = 'panel';
@@ -50,17 +67,20 @@ export class App {
     this.container.appendChild(this.root);
     this.root.innerHTML = buildSkeletonHTML();
 
-    const [settings, tree] = await Promise.all([
+    const [settings, tree, previewSettings] = await Promise.all([
       this.storageService.loadSettings(),
       this.bookmarksService.getTree(),
+      this.previewSettings.load(),
     ]);
 
     this.bookmarkTree = tree;
     this.currentFolderId = resolveStartupFolder(tree, settings.currentFolderId);
+    this.previewSize = previewSettings.previewSize;
 
     this.buildLayout();
     this.render();
     this.attachBookmarkListeners();
+    this.attachPreviewSettingsListener();
   }
 
   private buildLayout(): void {
@@ -145,6 +165,8 @@ export class App {
     container: HTMLElement,
     node: chrome.bookmarks.BookmarkTreeNode,
   ): void {
+    this.revokePreviewObjectUrls();
+    const version = ++this.renderVersion;
     const entries = buildFolderEntries(node, this.faviconService);
     const filtered = filterEntries(entries, this.searchText);
     const isSearching = this.searchText.trim().length > 0;
@@ -156,15 +178,18 @@ export class App {
       filtered,
       isSearching,
       canReorder,
+      this.previewSize,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
         onNavigateBack: () => this.navigateBack(),
-        onOpenLink: (url) => this.tabsService.openUrl(url),
+        onOpenLink: (item) => void this.openLink(item),
         onEditLink: (item) => this.editLink(item),
         onDeleteItem: (item) => this.deleteItem(item),
         onRenameFolder: (item) => this.renameFolder(item),
         onMoveItem: (item) => this.moveItem(item),
         onCreateFolderNearItem: (item, placement) => this.createFolderNearItem(item, placement),
+        onGeneratePreview: (item) => void this.generatePreview(item),
+        onRemovePreview: (item) => void this.removePreview(item),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
         onSortFolder: (action) => this.sortFolder(action),
       },
@@ -172,6 +197,7 @@ export class App {
 
     container.innerHTML = '';
     container.appendChild(view);
+    void this.loadPreviewsForEntries(container, node, filtered, version);
   }
 
   private displayTitle(node: chrome.bookmarks.BookmarkTreeNode): string {
@@ -202,6 +228,9 @@ export class App {
   private async editLink(item: LinkEntryViewModel): Promise<void> {
     const result = await showLinkEditor(item.title, item.url);
     if (!result) return;
+    if (result.url !== item.url) {
+      await this.previewDb.delete(getLinkPreviewKey(item.id));
+    }
     await this.operationsService.editLink(item.id, result.title, result.url);
     await this.reloadTree();
   }
@@ -359,16 +388,296 @@ export class App {
         (rootFolders.find((f) => f.id === '1') ?? rootFolders[0])?.id;
     }
 
-    const result = await showAddFavoriteModal(tab.url, tab.title, allFolders, defaultFolderId);
+    const previewSettings = await this.previewSettings.load();
+    const shouldCapturePreview = previewSettings.enabled
+      && previewSettings.autoGenerateForNewFavorites
+      && validatePreviewUrl(tab.url).ok;
+    let canCapturePreview = false;
+
+    const result = await showAddFavoriteModal(tab.url, tab.title, allFolders, defaultFolderId, {
+      beforeAdd: async () => {
+        canCapturePreview = shouldCapturePreview
+          ? await hasPreviewCapturePermission()
+          : false;
+        return true;
+      },
+    });
     if (!result) return;
 
-    await this.bookmarksService.createBookmark(result.folderId, result.title, result.url);
+    const created = await this.bookmarksService.createBookmark(result.folderId, result.title, result.url);
+    if (canCapturePreview) {
+      void this.captureNewFavoritePreview(created, result.title, result.url);
+    }
+    await this.reloadTree();
+  }
+
+  private async openLink(item: LinkEntryViewModel): Promise<void> {
+    const settings = await this.previewSettings.load();
+    const existing = settings.enabled && settings.autoGenerateWhenOpened
+      ? await this.previewDb.get(getLinkPreviewKey(item.id))
+      : undefined;
+    const shouldGenerate = settings.enabled
+      && settings.autoGenerateWhenOpened
+      && !(existing?.status === 'ok' && existing.blob);
+    const hasPermission = shouldGenerate ? await hasPreviewCapturePermission() : true;
+
+    const tab = await this.tabsService.openUrl(item.url);
+    if (!shouldGenerate || !tab.id || tab.windowId === undefined) return;
+
+    if (!hasPermission) {
+      await this.previewDb.saveError({
+        key: getLinkPreviewKey(item.id),
+        bookmarkId: item.id,
+        kind: 'link',
+        errorCode: 'permission-denied',
+        sourceUrl: item.url,
+        sourceTitle: item.title,
+      });
+      return;
+    }
+
+    const loaded = await this.tabsService.waitForTabComplete(tab.id, 15_000);
+    if (!loaded) {
+      await this.previewDb.saveError({
+        key: getLinkPreviewKey(item.id),
+        bookmarkId: item.id,
+        kind: 'link',
+        errorCode: 'navigation-timeout',
+        sourceUrl: item.url,
+        sourceTitle: item.title,
+      });
+      return;
+    }
+
+    await this.previewCapture.captureVisibleTabInWindow({
+      bookmarkId: item.id,
+      title: item.title,
+      url: item.url,
+      windowId: tab.windowId,
+    });
+    await this.rebuildParentFolderComposite(item.parentId);
+    await this.reloadTree();
+  }
+
+  private async captureNewFavoritePreview(
+    created: chrome.bookmarks.BookmarkTreeNode,
+    title: string,
+    url: string,
+  ): Promise<void> {
+    try {
+      const settings = await this.previewSettings.load();
+      if (!settings.enabled || !settings.autoGenerateForNewFavorites) return;
+      const tab = await this.tabsService.getActiveTab();
+      const windowId = tab?.windowId;
+      if (windowId === undefined) return;
+      const result = await this.previewCapture.captureVisibleTabInWindow({
+        bookmarkId: created.id,
+        title,
+        url,
+        windowId,
+      });
+      if (!result.ok) console.warn('Preview capture failed:', result.errorCode, result.errorMessage);
+      await this.rebuildParentFolderComposite(created.parentId ?? '');
+      await this.reloadTree();
+    } catch (err) {
+      console.warn('Preview capture failed:', err);
+    }
+  }
+
+  private async generatePreview(item: BookmarkEntryViewModel): Promise<void> {
+    try {
+      if (item.type === 'folder') {
+        await this.rebuildFolderComposite(item.id);
+        await this.reloadTree();
+        return;
+      }
+
+      if (!validatePreviewUrl(item.url).ok) {
+        await this.previewDb.saveError({
+          key: getLinkPreviewKey(item.id),
+          bookmarkId: item.id,
+          kind: 'link',
+          errorCode: 'unsupported-url',
+          sourceUrl: item.url,
+          sourceTitle: item.title,
+        });
+        await this.reloadTree();
+        await showInfo('Preview can only be generated for http and https pages.');
+        return;
+      }
+
+      const hasPermission = await hasPreviewCapturePermission();
+      if (!hasPermission) {
+        await this.previewDb.saveError({
+          key: getLinkPreviewKey(item.id),
+          bookmarkId: item.id,
+          kind: 'link',
+          errorCode: 'permission-denied',
+          sourceUrl: item.url,
+          sourceTitle: item.title,
+        });
+        await this.reloadTree();
+        await showInfo(getMissingPreviewPermissionMessage());
+        return;
+      }
+
+      let result;
+      const active = await this.tabsService.getActiveTab();
+      if (active?.url === item.url && active.windowId !== undefined) {
+        result = await this.previewCapture.captureVisibleTabInWindow({
+          bookmarkId: item.id,
+          title: item.title,
+          url: item.url,
+          windowId: active.windowId,
+        });
+      } else {
+        const tab = await this.tabsService.openUrl(item.url);
+        if (tab.id && tab.windowId !== undefined) {
+          const loaded = await this.tabsService.waitForTabComplete(tab.id, 15_000);
+          if (loaded) {
+            result = await this.previewCapture.captureVisibleTabInWindow({
+              bookmarkId: item.id,
+              title: item.title,
+              url: item.url,
+              windowId: tab.windowId,
+            });
+          } else {
+            await this.previewDb.saveError({
+              key: getLinkPreviewKey(item.id),
+              bookmarkId: item.id,
+              kind: 'link',
+              errorCode: 'navigation-timeout',
+              sourceUrl: item.url,
+              sourceTitle: item.title,
+            });
+            result = { ok: false, errorCode: 'navigation-timeout' as const };
+          }
+        } else {
+          await this.previewDb.saveError({
+            key: getLinkPreviewKey(item.id),
+            bookmarkId: item.id,
+            kind: 'link',
+            errorCode: 'tab-closed',
+            sourceUrl: item.url,
+            sourceTitle: item.title,
+          });
+          result = { ok: false, errorCode: 'tab-closed' as const };
+        }
+      }
+
+      await this.rebuildParentFolderComposite(item.parentId);
+      await this.reloadTree();
+
+      if (result && !result.ok) {
+        await showInfo(getPreviewErrorMessage(result.errorCode));
+      }
+    } catch (err) {
+      if (item.type === 'link') {
+        await this.previewDb.saveError({
+          key: getLinkPreviewKey(item.id),
+          bookmarkId: item.id,
+          kind: 'link',
+          errorCode: 'unknown',
+          errorMessage: String(err),
+          sourceUrl: item.url,
+          sourceTitle: item.title,
+        });
+        await this.reloadTree();
+      }
+      await showInfo(`Could not generate preview: ${String(err)}`);
+    }
+  }
+
+  private async removePreview(item: BookmarkEntryViewModel): Promise<void> {
+    await this.previewDb.delete(item.type === 'folder' ? getFolderPreviewKey(item.id) : getLinkPreviewKey(item.id));
+    if (item.type === 'link') await this.rebuildParentFolderComposite(item.parentId);
     await this.reloadTree();
   }
 
   private async reloadTree(): Promise<void> {
     this.bookmarkTree = await this.bookmarksService.getTree();
     this.render();
+  }
+
+  private async loadPreviewsForEntries(
+    container: HTMLElement,
+    node: chrome.bookmarks.BookmarkTreeNode,
+    entries: BookmarkEntryViewModel[],
+    version: number,
+  ): Promise<void> {
+    const keys = entries.map((entry) => entry.type === 'folder' ? getFolderPreviewKey(entry.id) : getLinkPreviewKey(entry.id));
+    const records = await this.previewDb.getMany(keys);
+    if (version !== this.renderVersion) return;
+
+    const recordsByKey = new Map(records.map((record) => [record.key, record]));
+    const entriesWithPreviews = entries.map((entry) => {
+      const key = entry.type === 'folder' ? getFolderPreviewKey(entry.id) : getLinkPreviewKey(entry.id);
+      const record = recordsByKey.get(key);
+      if (record?.status === 'ok' && record.blob) {
+        const objectUrl = URL.createObjectURL(record.blob);
+        this.previewObjectUrls.push(objectUrl);
+        return {
+          ...entry,
+          preview: {
+            status: 'ok' as const,
+            objectUrl,
+            width: record.width,
+            height: record.height,
+          },
+        };
+      }
+      if (record) return { ...entry, preview: { status: record.status } };
+      return { ...entry, preview: { status: 'none' as const } };
+    });
+
+    const isSearching = this.searchText.trim().length > 0;
+    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
+    const view = createFolderView(
+      { id: node.id, title: this.displayTitle(node) },
+      entriesWithPreviews,
+      isSearching,
+      !isSearching && !isVirtualRoot,
+      this.previewSize,
+      {
+        onNavigateToFolder: (id) => this.navigateTo(id),
+        onNavigateBack: () => this.navigateBack(),
+        onOpenLink: (item) => void this.openLink(item),
+        onEditLink: (item) => this.editLink(item),
+        onDeleteItem: (item) => this.deleteItem(item),
+        onRenameFolder: (item) => this.renameFolder(item),
+        onMoveItem: (item) => this.moveItem(item),
+        onCreateFolderNearItem: (item, placement) => this.createFolderNearItem(item, placement),
+        onGeneratePreview: (item) => void this.generatePreview(item),
+        onRemovePreview: (item) => void this.removePreview(item),
+        onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
+        onSortFolder: (action) => this.sortFolder(action),
+      },
+    );
+    container.innerHTML = '';
+    container.appendChild(view);
+  }
+
+  private async rebuildParentFolderComposite(folderId: string): Promise<void> {
+    if (!folderId) return;
+    await this.rebuildFolderComposite(folderId);
+  }
+
+  private async rebuildFolderComposite(folderId: string): Promise<void> {
+    const folder = findNodeById(this.bookmarkTree, folderId);
+    if (!folder) return;
+    const childRecords = await this.previewDb.getMany(
+      (folder.children ?? [])
+        .filter((child) => !!child.url)
+        .map((child) => getLinkPreviewKey(child.id)),
+    );
+    if (childRecords.some((record) => record.status === 'ok' && record.blob)) {
+      await this.previewCapture.createFolderComposite({ folderId, childRecords });
+    }
+  }
+
+  private revokePreviewObjectUrls(): void {
+    for (const objectUrl of this.previewObjectUrls) URL.revokeObjectURL(objectUrl);
+    this.previewObjectUrls = [];
   }
 
   private updateTopBar(): void {
@@ -383,10 +692,35 @@ export class App {
   private attachBookmarkListeners(): void {
     const reload = () => this.reloadTree();
     this.bookmarksService.onCreated(reload);
-    this.bookmarksService.onRemoved(reload);
-    this.bookmarksService.onChanged(reload);
-    this.bookmarksService.onMoved(reload);
+    this.bookmarksService.onRemoved((id, info) => {
+      void this.previewDb.deleteForBookmark(id);
+      if (info.parentId) void this.previewDb.delete(getFolderPreviewKey(info.parentId));
+      reload();
+    });
+    this.bookmarksService.onChanged((id, changeInfo) => {
+      if (changeInfo.url !== undefined) void this.previewDb.delete(getLinkPreviewKey(id));
+      reload();
+    });
+    this.bookmarksService.onMoved((_id, moveInfo) => {
+      void this.previewDb.delete(getFolderPreviewKey(moveInfo.parentId));
+      void this.previewDb.delete(getFolderPreviewKey(moveInfo.oldParentId));
+      reload();
+    });
     this.bookmarksService.onImportEnded(reload);
+  }
+
+  private attachPreviewSettingsListener(): void {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes[PREVIEW_SETTINGS_STORAGE_KEY]) return;
+      void this.refreshPreviewSize();
+    });
+  }
+
+  private async refreshPreviewSize(): Promise<void> {
+    const settings = await this.previewSettings.load();
+    if (settings.previewSize === this.previewSize) return;
+    this.previewSize = settings.previewSize;
+    this.render();
   }
 }
 
@@ -422,6 +756,36 @@ function buildEmptyState(searchText: string): HTMLElement {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function hasPreviewCapturePermission(): Promise<boolean> {
+  try {
+    return await chrome.permissions.contains({ origins: [...PREVIEW_CAPTURE_PERMISSION_ORIGINS] });
+  } catch (err) {
+    console.warn('Preview permission check failed:', err);
+    return false;
+  }
+}
+
+function getPreviewErrorMessage(errorCode: unknown): string {
+  switch (errorCode) {
+    case 'permission-denied':
+      return getMissingPreviewPermissionMessage();
+    case 'navigation-timeout':
+      return 'The page did not finish loading in time for preview generation.';
+    case 'empty-screenshot':
+      return 'The captured preview was empty.';
+    case 'tab-closed':
+      return 'The preview tab was closed before capture finished.';
+    case 'unsupported-url':
+      return 'Preview can only be generated for http and https pages.';
+    default:
+      return 'Could not generate preview.';
+  }
+}
+
+function getMissingPreviewPermissionMessage(): string {
+  return 'Preview generation needs all-sites access. Reload the updated extension and try again.';
 }
 
 function svgPlus(): string {

@@ -7,11 +7,16 @@ export interface AddFavoriteResult {
   url: string;
 }
 
+export interface AddFavoriteModalOptions {
+  beforeAdd?: () => Promise<boolean>;
+}
+
 export function showAddFavoriteModal(
   url: string,
   title: string,
   folders: FolderChoice[],
   defaultFolderId?: string,
+  options: AddFavoriteModalOptions = {},
 ): Promise<AddFavoriteResult | null> {
   return new Promise((resolve) => {
     const close = (result: AddFavoriteResult | null) => {
@@ -78,19 +83,20 @@ export function showAddFavoriteModal(
     addBtn.className = 'btn btn--primary';
     addBtn.textContent = 'Add';
 
-    const tryAdd = () => {
+    const tryAdd = async () => {
       const t = titleInput.value.trim();
       const folderId = select.value;
       if (!t || !folderId) return;
+      if (options.beforeAdd && !(await options.beforeAdd())) return;
       close({ folderId, title: t, url });
     };
 
-    addBtn.addEventListener('click', tryAdd);
+    addBtn.addEventListener('click', () => void tryAdd());
 
     titleInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        tryAdd();
+        void tryAdd();
       }
     });
 
