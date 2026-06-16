@@ -62,6 +62,7 @@ class PreviewSettingsPage {
             ${checkbox('enabled', 'Enable previews', this.settings.enabled)}
             ${checkbox('autoGenerateForNewFavorites', 'Generate preview when adding current page', this.settings.autoGenerateForNewFavorites)}
             ${checkbox('autoGenerateWhenOpened', 'Generate missing preview when opening favorite', this.settings.autoGenerateWhenOpened)}
+            ${checkbox('showFaviconOverlay', 'Show site icon on preview image', this.settings.showFaviconOverlay)}
           </div>
 
           <div class="number-grid">

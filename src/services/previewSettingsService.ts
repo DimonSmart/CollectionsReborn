@@ -34,6 +34,7 @@ export interface PreviewSettings {
   enabled: boolean;
   autoGenerateForNewFavorites: boolean;
   autoGenerateWhenOpened: boolean;
+  showFaviconOverlay: boolean;
   previewSize: PreviewSize;
   imageFormat: 'image/webp' | 'image/jpeg';
   imageQuality: number;
@@ -47,6 +48,7 @@ export const DEFAULT_PREVIEW_SETTINGS: PreviewSettings = {
   enabled: true,
   autoGenerateForNewFavorites: true,
   autoGenerateWhenOpened: true,
+  showFaviconOverlay: false,
   previewSize: DEFAULT_PREVIEW_SIZE,
   imageFormat: 'image/webp',
   imageQuality: 0.7,

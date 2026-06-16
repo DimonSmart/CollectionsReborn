@@ -4,6 +4,7 @@ import { showActionsMenu } from './ActionsMenu.js';
 export function createBookmarkRow(
   entry: BookmarkEntryViewModel,
   callbacks: FolderViewCallbacks,
+  options: { showFaviconOverlay: boolean } = { showFaviconOverlay: false },
 ): HTMLElement {
   const li = document.createElement('li');
   li.className = 'bookmark-row';
@@ -16,7 +17,7 @@ export function createBookmarkRow(
   handle.title = 'Drag to reorder';
   handle.innerHTML = svgDragHandle();
 
-  const icon = buildIcon(entry);
+  const icon = buildIcon(entry, options);
   const info = buildInfo(entry);
   const menuBtn = buildMenuBtn(entry, callbacks);
 
@@ -34,7 +35,10 @@ export function createBookmarkRow(
   return li;
 }
 
-function buildIcon(entry: BookmarkEntryViewModel): HTMLElement {
+function buildIcon(
+  entry: BookmarkEntryViewModel,
+  options: { showFaviconOverlay: boolean },
+): HTMLElement {
   const el = document.createElement('span');
   el.className = 'row-preview';
   el.setAttribute('aria-hidden', 'true');
@@ -44,6 +48,9 @@ function buildIcon(entry: BookmarkEntryViewModel): HTMLElement {
     img.src = entry.preview.objectUrl;
     img.alt = '';
     el.appendChild(img);
+    if (options.showFaviconOverlay && entry.type === 'link') {
+      el.appendChild(buildFaviconOverlay(entry));
+    }
     return el;
   }
 
@@ -81,6 +88,21 @@ function buildIcon(entry: BookmarkEntryViewModel): HTMLElement {
   }
 
   return el;
+}
+
+function buildFaviconOverlay(entry: LinkEntryViewModel): HTMLElement {
+  const badge = document.createElement('span');
+  badge.className = 'row-preview-favicon';
+
+  const img = document.createElement('img');
+  img.src = entry.faviconUrl;
+  img.width = 16;
+  img.height = 16;
+  img.alt = '';
+  img.addEventListener('error', () => badge.remove());
+
+  badge.appendChild(img);
+  return badge;
 }
 
 function buildInfo(entry: BookmarkEntryViewModel): HTMLElement {

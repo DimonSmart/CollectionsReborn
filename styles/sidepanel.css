@@ -231,6 +231,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: var(--row-preview-width, 112px);
   height: var(--row-preview-height, 63px);
   flex: 0 0 var(--row-preview-width, 112px);
@@ -245,6 +246,28 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.row-preview-favicon {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.85);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+}
+
+.row-preview-favicon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 3px;
 }
 
 .row-preview-fallback {

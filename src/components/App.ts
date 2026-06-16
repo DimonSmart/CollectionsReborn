@@ -46,6 +46,7 @@ export class App {
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
   private previewObjectUrls: string[] = [];
   private previewSize: PreviewSize = DEFAULT_PREVIEW_SIZE;
+  private showFaviconOverlay = false;
   private renderVersion = 0;
 
   constructor(
@@ -76,6 +77,7 @@ export class App {
     this.bookmarkTree = tree;
     this.currentFolderId = resolveStartupFolder(tree, settings.currentFolderId);
     this.previewSize = previewSettings.previewSize;
+    this.showFaviconOverlay = previewSettings.showFaviconOverlay;
 
     this.buildLayout();
     this.render();
@@ -179,6 +181,7 @@ export class App {
       isSearching,
       canReorder,
       this.previewSize,
+      this.showFaviconOverlay,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
         onNavigateBack: () => this.navigateBack(),
@@ -638,6 +641,7 @@ export class App {
       isSearching,
       !isSearching && !isVirtualRoot,
       this.previewSize,
+      this.showFaviconOverlay,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
         onNavigateBack: () => this.navigateBack(),
@@ -712,14 +716,20 @@ export class App {
   private attachPreviewSettingsListener(): void {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'local' || !changes[PREVIEW_SETTINGS_STORAGE_KEY]) return;
-      void this.refreshPreviewSize();
+      void this.refreshPreviewDisplaySettings();
     });
   }
 
-  private async refreshPreviewSize(): Promise<void> {
+  private async refreshPreviewDisplaySettings(): Promise<void> {
     const settings = await this.previewSettings.load();
-    if (settings.previewSize === this.previewSize) return;
+    if (
+      settings.previewSize === this.previewSize
+      && settings.showFaviconOverlay === this.showFaviconOverlay
+    ) {
+      return;
+    }
     this.previewSize = settings.previewSize;
+    this.showFaviconOverlay = settings.showFaviconOverlay;
     this.render();
   }
 }

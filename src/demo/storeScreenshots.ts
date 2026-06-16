@@ -46,6 +46,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       false,
       true,
       DEFAULT_PREVIEW_SIZE,
+      false,
       callbacks,
     ));
     return;
@@ -58,6 +59,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       false,
       true,
       DEFAULT_PREVIEW_SIZE,
+      false,
       callbacks,
     );
     viewContainer.appendChild(view);
@@ -72,6 +74,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       false,
       true,
       DEFAULT_PREVIEW_SIZE,
+      false,
       callbacks,
     ));
     window.setTimeout(() => {
@@ -87,6 +90,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       false,
       true,
       DEFAULT_PREVIEW_SIZE,
+      false,
       callbacks,
     ));
     window.setTimeout(() => {
@@ -111,6 +115,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     false,
     true,
     DEFAULT_PREVIEW_SIZE,
+    false,
     callbacks,
   ));
 }
