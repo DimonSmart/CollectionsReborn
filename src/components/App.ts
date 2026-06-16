@@ -32,6 +32,7 @@ import {
   canNavigateBack,
   buildFolderEntries,
   filterEntries,
+  searchBookmarkTree,
   collectAllFolders,
 } from '../domain/bookmarkTree.js';
 import { getFolderPreviewKey, getLinkPreviewKey } from '../domain/previewKeys.js';
@@ -101,8 +102,8 @@ export class App {
     const searchInput = document.createElement('input');
     searchInput.type = 'search';
     searchInput.className = 'search-input';
-    searchInput.placeholder = 'Search in folder…';
-    searchInput.setAttribute('aria-label', 'Search in current folder');
+    searchInput.placeholder = 'Search bookmarks…';
+    searchInput.setAttribute('aria-label', 'Search bookmarks');
     searchInput.addEventListener('input', () => {
       if (this.searchDebounce) clearTimeout(this.searchDebounce);
       this.searchDebounce = setTimeout(() => {
@@ -169,9 +170,11 @@ export class App {
   ): void {
     this.revokePreviewObjectUrls();
     const version = ++this.renderVersion;
-    const entries = buildFolderEntries(node, this.faviconService);
-    const filtered = filterEntries(entries, this.searchText);
     const isSearching = this.searchText.trim().length > 0;
+    const entries = buildFolderEntries(node, this.faviconService);
+    const filtered = isSearching
+      ? searchBookmarkTree(this.bookmarkTree, this.searchText, this.faviconService)
+      : filterEntries(entries, this.searchText);
     const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
     const canReorder = !isSearching && !isVirtualRoot;
 
@@ -193,6 +196,7 @@ export class App {
         onCreateFolderNearItem: (item, placement) => this.createFolderNearItem(item, placement),
         onGeneratePreview: (item) => void this.generatePreview(item),
         onRemovePreview: (item) => void this.removePreview(item),
+        onUpdateLinkUrlFromCurrentTab: (item) => void this.updateLinkUrlFromCurrentTab(item),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
         onSortFolder: (action) => this.sortFolder(action),
       },
@@ -235,6 +239,29 @@ export class App {
       await this.previewDb.delete(getLinkPreviewKey(item.id));
     }
     await this.operationsService.editLink(item.id, result.title, result.url);
+    await this.reloadTree();
+  }
+
+  private async updateLinkUrlFromCurrentTab(item: LinkEntryViewModel): Promise<void> {
+    const tab = await this.tabsService.getActiveTab();
+    if (!tab?.url) {
+      await showInfo('No active page URL is available.');
+      return;
+    }
+    if (!validatePreviewUrl(tab.url).ok) {
+      await showInfo('The active page URL cannot be saved as a bookmark.');
+      return;
+    }
+    if (tab.url === item.url) {
+      await showInfo('This bookmark already uses the active page URL.');
+      return;
+    }
+
+    const confirmed = await showConfirm(`Update "${item.title}" URL to the active page?`);
+    if (!confirmed) return;
+
+    await this.previewDb.delete(getLinkPreviewKey(item.id));
+    await this.operationsService.editLink(item.id, item.title, tab.url);
     await this.reloadTree();
   }
 
@@ -653,6 +680,7 @@ export class App {
         onCreateFolderNearItem: (item, placement) => this.createFolderNearItem(item, placement),
         onGeneratePreview: (item) => void this.generatePreview(item),
         onRemovePreview: (item) => void this.removePreview(item),
+        onUpdateLinkUrlFromCurrentTab: (item) => void this.updateLinkUrlFromCurrentTab(item),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
         onSortFolder: (action) => this.sortFolder(action),
       },

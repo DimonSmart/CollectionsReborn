@@ -97,6 +97,68 @@ export function filterEntries(
   });
 }
 
+export function searchBookmarkTree(
+  tree: chrome.bookmarks.BookmarkTreeNode[],
+  searchText: string,
+  faviconService: FaviconService,
+): BookmarkEntryViewModel[] {
+  const q = searchText.trim().toLowerCase();
+  if (!q) return [];
+
+  const results: BookmarkEntryViewModel[] = [];
+
+  const visit = (nodes: chrome.bookmarks.BookmarkTreeNode[]): void => {
+    for (const node of nodes) {
+      if (node.id !== getVirtualRootId(tree) && nodeMatchesSearch(node, q, faviconService)) {
+        results.push(buildEntryFromNode(node, faviconService));
+      }
+      if (node.children) visit(node.children);
+    }
+  };
+
+  visit(tree);
+  return results;
+}
+
+function nodeMatchesSearch(
+  node: chrome.bookmarks.BookmarkTreeNode,
+  query: string,
+  faviconService: FaviconService,
+): boolean {
+  if (node.title.toLowerCase().includes(query)) return true;
+  if (!node.url) return false;
+  return node.url.toLowerCase().includes(query)
+    || faviconService.getDomain(node.url).toLowerCase().includes(query);
+}
+
+function buildEntryFromNode(
+  node: chrome.bookmarks.BookmarkTreeNode,
+  faviconService: FaviconService,
+): BookmarkEntryViewModel {
+  if (node.url) {
+    const domain = faviconService.getDomain(node.url);
+    return {
+      type: 'link',
+      id: node.id,
+      parentId: node.parentId ?? '',
+      index: node.index ?? 0,
+      title: node.title || domain || node.url,
+      url: node.url,
+      domain,
+      faviconUrl: faviconService.getFaviconUrl(node.url, 16),
+    };
+  }
+
+  return {
+    type: 'folder',
+    id: node.id,
+    parentId: node.parentId ?? '',
+    index: node.index ?? 0,
+    title: node.title,
+    childCount: (node.children ?? []).length,
+  };
+}
+
 export function collectAllFolders(
   tree: chrome.bookmarks.BookmarkTreeNode[],
 ): FolderChoice[] {

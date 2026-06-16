@@ -67,7 +67,6 @@ class PreviewSettingsPage {
 
           <div class="number-grid">
             ${previewSizeField(this.settings.previewSize)}
-            ${numberField('imageQuality', 'Image quality', this.settings.imageQuality, '0.1', '1', '0.05')}
             ${numberField('maxStorageMb', 'Storage limit MB', this.settings.maxStorageMb)}
           </div>
 

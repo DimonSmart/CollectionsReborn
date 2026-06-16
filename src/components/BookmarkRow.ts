@@ -162,12 +162,14 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
       { label: 'Open', action: () => callbacks.onOpenLink(entry as LinkEntryViewModel) },
       { label: 'Edit…', action: () => callbacks.onEditLink(entry as LinkEntryViewModel) },
       { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
-      ...(!entry.preview || entry.preview.status !== 'ok'
-        ? [{ label: 'Generate preview', action: () => callbacks.onGeneratePreview(entry) }]
-        : []),
+      {
+        label: entry.preview?.status === 'ok' ? 'Update preview' : 'Generate preview',
+        action: () => callbacks.onGeneratePreview(entry),
+      },
       ...(entry.preview && entry.preview.status !== 'none'
         ? [{ label: 'Remove preview', action: () => callbacks.onRemovePreview(entry) }]
         : []),
+      { label: 'Update URL from current tab', action: () => callbacks.onUpdateLinkUrlFromCurrentTab(entry as LinkEntryViewModel) },
       { type: 'separator' as const },
       { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
       { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },

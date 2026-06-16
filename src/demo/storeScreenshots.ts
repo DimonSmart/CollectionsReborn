@@ -35,6 +35,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     onCreateFolderNearItem: () => undefined,
     onGeneratePreview: () => undefined,
     onRemovePreview: () => undefined,
+    onUpdateLinkUrlFromCurrentTab: () => undefined,
     onReorder: () => undefined,
     onSortFolder: () => undefined,
   };
@@ -127,8 +128,8 @@ function buildTopBar(name: string): HTMLElement {
   const searchInput = document.createElement('input');
   searchInput.type = 'search';
   searchInput.className = 'search-input';
-  searchInput.placeholder = 'Search in folder...';
-  searchInput.setAttribute('aria-label', 'Search in current folder');
+  searchInput.placeholder = 'Search bookmarks...';
+  searchInput.setAttribute('aria-label', 'Search bookmarks');
   if (name === 'folder') {
     searchInput.value = 'docs';
   }

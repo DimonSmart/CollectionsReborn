@@ -49,6 +49,7 @@ export interface FolderViewCallbacks {
   onCreateFolderNearItem: (item: BookmarkEntryViewModel, placement: FolderInsertPlacement) => void;
   onGeneratePreview: (item: BookmarkEntryViewModel) => void;
   onRemovePreview: (item: BookmarkEntryViewModel) => void;
+  onUpdateLinkUrlFromCurrentTab: (item: LinkEntryViewModel) => void;
   onReorder: (itemId: string, newIndex: number) => void;
   onSortFolder: (action: SortAction) => void;
 }

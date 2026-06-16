@@ -7,6 +7,7 @@ import {
   canNavigateBack,
   buildFolderEntries,
   filterEntries,
+  searchBookmarkTree,
   collectAllFolders,
   isDescendantOf,
 } from './bookmarkTree.js';
@@ -287,5 +288,25 @@ describe('filterEntries', () => {
     const bar = findNodeById(tree, '1')!;
     const entries = buildFolderEntries(bar, mockFavicon);
     expect(filterEntries(entries, 'zzznomatch')).toHaveLength(0);
+  });
+});
+
+describe('searchBookmarkTree', () => {
+  it('finds a nested folder by a short exact title', () => {
+    const tree = makeTree();
+    const work = findNodeById(tree, '12')!;
+    work.children!.push(folder('121', '12', 'HR'));
+
+    const result = searchBookmarkTree(tree, 'hr', mockFavicon);
+
+    expect(result.some((e) => e.type === 'folder' && e.id === '121' && e.title === 'HR')).toBe(true);
+  });
+
+  it('finds links outside the current folder by domain', () => {
+    const tree = makeTree();
+
+    const result = searchBookmarkTree(tree, 'reddit.com', mockFavicon);
+
+    expect(result.some((e) => e.type === 'link' && e.id === '20')).toBe(true);
   });
 });
