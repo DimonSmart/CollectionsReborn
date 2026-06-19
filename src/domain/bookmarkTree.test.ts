@@ -215,7 +215,7 @@ describe('buildFolderEntries', () => {
   it('maps link children correctly', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     const link = entries.find((e) => e.id === '10');
     expect(link?.type).toBe('link');
     expect(link?.title).toBe('Google');
@@ -227,7 +227,7 @@ describe('buildFolderEntries', () => {
   it('maps folder children correctly', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     const folderEntry = entries.find((e) => e.id === '12');
     expect(folderEntry?.type).toBe('folder');
     if (folderEntry?.type === 'folder') {
@@ -237,7 +237,7 @@ describe('buildFolderEntries', () => {
 
   it('returns empty array for folder with no children', () => {
     const emptyFolder: Node = folder('99', '1', 'Empty');
-    const entries = buildFolderEntries(emptyFolder, mockFavicon);
+    const entries = buildFolderEntries([emptyFolder], emptyFolder, mockFavicon);
     expect(entries).toHaveLength(0);
   });
 });
@@ -246,14 +246,14 @@ describe('filterEntries', () => {
   it('returns all entries when query is empty', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     expect(filterEntries(entries, '')).toHaveLength(entries.length);
   });
 
   it('filters by title (case insensitive)', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     const result = filterEntries(entries, 'git');
     expect(result).toHaveLength(1);
     expect(result[0].title).toBe('GitHub');
@@ -262,7 +262,7 @@ describe('filterEntries', () => {
   it('filters links by url', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     const result = filterEntries(entries, 'github.com');
     expect(result.some((e) => e.title === 'GitHub')).toBe(true);
   });
@@ -270,7 +270,7 @@ describe('filterEntries', () => {
   it('filters links by domain', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     const result = filterEntries(entries, 'google');
     expect(result.some((e) => e.title === 'Google')).toBe(true);
   });
@@ -278,7 +278,7 @@ describe('filterEntries', () => {
   it('does not filter folders by url (folders have no url)', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     const result = filterEntries(entries, 'work');
     expect(result.some((e) => e.type === 'folder' && e.title === 'Work')).toBe(true);
   });
@@ -286,7 +286,7 @@ describe('filterEntries', () => {
   it('returns empty array when nothing matches', () => {
     const tree = makeTree();
     const bar = findNodeById(tree, '1')!;
-    const entries = buildFolderEntries(bar, mockFavicon);
+    const entries = buildFolderEntries(tree, bar, mockFavicon);
     expect(filterEntries(entries, 'zzznomatch')).toHaveLength(0);
   });
 });

@@ -38,6 +38,7 @@ import {
 import { getFolderPreviewKey, getLinkPreviewKey } from '../domain/previewKeys.js';
 import { PREVIEW_CAPTURE_PERMISSION_ORIGINS } from '../domain/previewPermissions.js';
 import { validatePreviewUrl } from '../domain/previewUrlRules.js';
+import { getBookmarkCapabilities, type BookmarkCapabilities } from '../domain/bookmarkCapabilities.js';
 
 export class App {
   private root: HTMLElement;
@@ -171,17 +172,19 @@ export class App {
     this.revokePreviewObjectUrls();
     const version = ++this.renderVersion;
     const isSearching = this.searchText.trim().length > 0;
-    const entries = buildFolderEntries(node, this.faviconService);
+    const entries = buildFolderEntries(this.bookmarkTree, node, this.faviconService);
     const filtered = isSearching
       ? searchBookmarkTree(this.bookmarkTree, this.searchText, this.faviconService)
       : filterEntries(entries, this.searchText);
-    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
-    const canReorder = !isSearching && !isVirtualRoot;
+    const folderCapabilities = getBookmarkCapabilities(this.bookmarkTree, node);
+    const canDragItems = !isSearching && folderCapabilities.canCreateChildren;
+    const canReorder = !isSearching && folderCapabilities.canSortChildren;
 
     const view = createFolderView(
       { id: node.id, title: this.displayTitle(node) },
       filtered,
       isSearching,
+      canDragItems,
       canReorder,
       this.previewSize,
       this.showFaviconOverlay,
@@ -211,9 +214,6 @@ export class App {
   private displayTitle(node: chrome.bookmarks.BookmarkTreeNode): string {
     if (node.id === getVirtualRootId(this.bookmarkTree)) return 'All bookmarks';
     if (node.title) return node.title;
-    if (node.id === '1') return 'Bookmarks Bar';
-    if (node.id === '2') return 'Other Bookmarks';
-    if (node.id === '3') return 'Mobile Bookmarks';
     return 'Bookmarks';
   }
 
@@ -234,16 +234,23 @@ export class App {
   }
 
   private async editLink(item: LinkEntryViewModel): Promise<void> {
+    if (!(await this.requireCapability(item.id, 'canEditUrl', 'This bookmark cannot be edited.'))) return;
     const result = await showLinkEditor(item.title, item.url);
     if (!result) return;
+    if (!(await this.requireCapability(item.id, 'canEditUrl', 'This bookmark cannot be edited.'))) return;
     if (result.url !== item.url) {
       await this.previewDb.delete(getLinkPreviewKey(item.id));
     }
-    await this.operationsService.editLink(item.id, result.title, result.url);
-    await this.reloadTree();
+    try {
+      await this.operationsService.editLink(item.id, result.title, result.url);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not edit bookmark: ${String(err)}`);
+    }
   }
 
   private async updateLinkUrlFromCurrentTab(item: LinkEntryViewModel): Promise<void> {
+    if (!(await this.requireCapability(item.id, 'canEditUrl', 'This bookmark URL cannot be edited.'))) return;
     const tab = await this.tabsService.getActiveTab();
     if (!tab?.url) {
       await showInfo('No active page URL is available.');
@@ -263,23 +270,36 @@ export class App {
       confirmVariant: 'primary',
     });
     if (!confirmed) return;
+    if (!(await this.requireCapability(item.id, 'canEditUrl', 'This bookmark URL cannot be edited.'))) return;
 
     await this.previewDb.delete(getLinkPreviewKey(item.id));
-    await this.operationsService.editLink(item.id, item.title, tab.url);
-    await this.reloadTree();
+    try {
+      await this.operationsService.editLink(item.id, item.title, tab.url);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not update bookmark URL: ${String(err)}`);
+    }
   }
 
   private async renameFolder(item: FolderEntryViewModel): Promise<void> {
+    if (!(await this.requireCapability(item.id, 'canRename', 'This browser folder cannot be renamed.'))) return;
     const newName = await showFolderEditor(item.title);
     if (!newName || newName === item.title) return;
-    await this.operationsService.renameFolder(item.id, newName);
-    await this.reloadTree();
+    if (!(await this.requireCapability(item.id, 'canRename', 'This browser folder cannot be renamed.'))) return;
+    try {
+      await this.operationsService.renameFolder(item.id, newName);
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not rename folder: ${String(err)}`);
+    }
   }
 
   private async deleteItem(item: BookmarkEntryViewModel): Promise<void> {
+    if (!(await this.requireCapability(item.id, 'canDelete', 'This item cannot be deleted.'))) return;
     const label = item.type === 'folder' ? 'folder' : 'bookmark';
     const confirmed = await showConfirm(`Delete ${label} "${item.title}"?`);
     if (!confirmed) return;
+    if (!(await this.requireCapability(item.id, 'canDelete', 'This item cannot be deleted.'))) return;
     try {
       await this.operationsService.deleteItem(item);
       await this.reloadTree();
@@ -289,9 +309,12 @@ export class App {
   }
 
   private async moveItem(item: BookmarkEntryViewModel): Promise<void> {
+    if (!(await this.requireCapability(item.id, 'canMove', 'This item cannot be moved.'))) return;
     const allFolders = collectAllFolders(this.bookmarkTree);
     const result = await showMoveToDialog(item, allFolders, this.bookmarkTree);
     if (!result) return;
+    if (!(await this.requireCapability(item.id, 'canMove', 'This item cannot be moved.'))) return;
+    if (!(await this.requireCapability(result.folderId, 'canCreateChildren', 'The selected folder is read-only.'))) return;
     try {
       await this.operationsService.moveItemToFolder(item.id, result);
       await this.reloadTree();
@@ -301,6 +324,8 @@ export class App {
   }
 
   private async reorderItem(itemId: string, newIndex: number): Promise<void> {
+    if (!(await this.requireCapability(itemId, 'canMove', 'This item cannot be moved.'))) return;
+    if (!(await this.requireCapability(this.currentFolderId, 'canSortChildren', 'Items in this folder cannot be reordered.'))) return;
     try {
       await this.operationsService.reorderItemInFolder(itemId, this.currentFolderId, newIndex);
     } catch (err) {
@@ -310,6 +335,8 @@ export class App {
   }
 
   private async moveItemIntoFolder(itemId: string, folderId: string): Promise<void> {
+    if (!(await this.requireCapability(itemId, 'canMove', 'This item cannot be moved.'))) return;
+    if (!(await this.requireCapability(folderId, 'canCreateChildren', 'The destination folder is read-only.'))) return;
     try {
       await this.operationsService.moveItemToFolder(itemId, { folderId, placement: 'end' });
       await this.reloadTree();
@@ -322,7 +349,8 @@ export class App {
   private async sortFolder(action: SortAction): Promise<void> {
     const node = findNodeById(this.bookmarkTree, this.currentFolderId);
     if (!node) return;
-    const entries = buildFolderEntries(node, this.faviconService);
+    if (!(await this.requireCapability(node.id, 'canSortChildren', 'This folder cannot be sorted.'))) return;
+    const entries = buildFolderEntries(this.bookmarkTree, node, this.faviconService);
     try {
       await this.operationsService.sortFolder(this.currentFolderId, entries, action);
       await this.reloadTree();
@@ -336,46 +364,54 @@ export class App {
     const node = findNodeById(this.bookmarkTree, this.currentFolderId);
     if (!node) return;
 
-    const entries = buildFolderEntries(node, this.faviconService);
     const isSearching = this.searchText.trim().length > 0;
-    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
-    const canSort = !isSearching && !isVirtualRoot && entries.length > 1;
+    const capabilities = getBookmarkCapabilities(this.bookmarkTree, node);
+    const canSort = !isSearching && capabilities.canSortChildren;
 
-    const items: MenuItem[] = [{ label: 'New folder…', action: () => this.createFolder() }];
+    const items: MenuItem[] = [{
+      label: 'New folder…',
+      action: () => this.createFolder(),
+      disabled: !capabilities.canCreateChildren,
+      disabledReason: 'A folder cannot be created here',
+    }];
 
-    if (canSort) {
-      items.push({ type: 'separator' });
-      items.push({
-        label: 'Folders first',
-        action: () => void this.sortFolder('folders-first'),
-      });
-      items.push({
-        label: 'Links first',
-        action: () => void this.sortFolder('links-first'),
-      });
-      items.push({
-        label: 'Sort by title A-Z',
-        action: () => void this.sortFolder('title-asc'),
-      });
-      items.push({
-        label: 'Sort by title Z-A',
-        action: () => void this.sortFolder('title-desc'),
-      });
-      items.push({
-        label: 'Sort links by domain',
-        action: () => void this.sortFolder('domain-asc'),
-      });
-    }
+    items.push({ type: 'separator' });
+    items.push({
+      label: 'Folders first',
+      action: () => void this.sortFolder('folders-first'),
+      disabled: !canSort,
+      disabledReason: 'This folder cannot be sorted',
+    });
+    items.push({
+      label: 'Links first',
+      action: () => void this.sortFolder('links-first'),
+      disabled: !canSort,
+      disabledReason: 'This folder cannot be sorted',
+    });
+    items.push({
+      label: 'Sort by title A-Z',
+      action: () => void this.sortFolder('title-asc'),
+      disabled: !canSort,
+      disabledReason: 'This folder cannot be sorted',
+    });
+    items.push({
+      label: 'Sort by title Z-A',
+      action: () => void this.sortFolder('title-desc'),
+      disabled: !canSort,
+      disabledReason: 'This folder cannot be sorted',
+    });
+    items.push({
+      label: 'Sort links by domain',
+      action: () => void this.sortFolder('domain-asc'),
+      disabled: !canSort,
+      disabledReason: 'This folder cannot be sorted',
+    });
 
     showActionsMenu(anchor, items);
   }
 
   private async createFolder(): Promise<void> {
-    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
-    if (isVirtualRoot) {
-      await showInfo('Open a bookmark folder before creating a folder.');
-      return;
-    }
+    if (!(await this.requireCapability(this.currentFolderId, 'canCreateChildren', 'A folder cannot be created here.'))) return;
 
     const title = await showFolderEditor('New folder', {
       ariaLabel: 'Create new folder',
@@ -383,6 +419,7 @@ export class App {
       saveLabel: 'Create',
     });
     if (!title) return;
+    if (!(await this.requireCapability(this.currentFolderId, 'canCreateChildren', 'A folder cannot be created here.'))) return;
 
     try {
       await this.bookmarksService.createFolder(this.currentFolderId, title);
@@ -397,6 +434,8 @@ export class App {
     item: BookmarkEntryViewModel,
     placement: FolderInsertPlacement,
   ): Promise<void> {
+    const capability = placement === 'before' ? 'canCreateFolderBefore' : 'canCreateFolderAfter';
+    if (!(await this.requireCapability(item.id, capability, 'A folder cannot be created here.'))) return;
     const targetIndex = placement === 'before' ? item.index : item.index + 1;
     const title = await showFolderEditor('New folder', {
       ariaLabel: 'Create new folder',
@@ -404,6 +443,7 @@ export class App {
       saveLabel: 'Create',
     });
     if (!title) return;
+    if (!(await this.requireCapability(item.id, capability, 'A folder cannot be created here.'))) return;
 
     try {
       await this.bookmarksService.createFolder(item.parentId, title, targetIndex);
@@ -428,8 +468,7 @@ export class App {
       defaultFolderId = this.currentFolderId;
     } else {
       const rootFolders = getRootFolders(this.bookmarkTree);
-      defaultFolderId =
-        (rootFolders.find((f) => f.id === '1') ?? rootFolders[0])?.id;
+      defaultFolderId = rootFolders[0]?.id;
     }
 
     const previewSettings = await this.previewSettings.load();
@@ -447,6 +486,8 @@ export class App {
       },
     });
     if (!result) return;
+
+    if (!(await this.requireCapability(result.folderId, 'canCreateChildren', 'A bookmark cannot be created in this folder.'))) return;
 
     const created = await this.bookmarksService.createBookmark(result.folderId, result.title, result.url);
     if (canCapturePreview) {
@@ -678,12 +719,13 @@ export class App {
     });
 
     const isSearching = this.searchText.trim().length > 0;
-    const isVirtualRoot = this.currentFolderId === getVirtualRootId(this.bookmarkTree);
+    const folderCapabilities = getBookmarkCapabilities(this.bookmarkTree, node);
     const view = createFolderView(
       { id: node.id, title: this.displayTitle(node) },
       entriesWithPreviews,
       isSearching,
-      !isSearching && !isVirtualRoot,
+      !isSearching && folderCapabilities.canCreateChildren,
+      !isSearching && folderCapabilities.canSortChildren,
       this.previewSize,
       this.showFaviconOverlay,
       {
@@ -777,6 +819,17 @@ export class App {
     this.previewSize = settings.previewSize;
     this.showFaviconOverlay = settings.showFaviconOverlay;
     this.render();
+  }
+
+  private async requireCapability(
+    nodeId: string,
+    capability: keyof BookmarkCapabilities,
+    message: string,
+  ): Promise<boolean> {
+    const node = findNodeById(this.bookmarkTree, nodeId);
+    if (node && getBookmarkCapabilities(this.bookmarkTree, node)[capability]) return true;
+    await showInfo(message);
+    return false;
   }
 }
 

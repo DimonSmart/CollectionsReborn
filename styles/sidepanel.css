@@ -727,6 +727,14 @@ body {
 .actions-menu__item:hover { background: var(--bg-hover); }
 .actions-menu__item--danger { color: var(--danger); }
 .actions-menu__item--danger:hover { background: var(--danger-light); }
+.actions-menu__item:disabled { opacity: 0.5; cursor: not-allowed; }
+.actions-menu__item:disabled:hover { background: transparent; }
+.actions-menu__item--danger:disabled { color: var(--text-muted); }
+
+.bookmark-row--not-draggable .drag-handle {
+  cursor: default;
+  opacity: 0.35;
+}
 
 .actions-menu__separator {
   height: 1px;

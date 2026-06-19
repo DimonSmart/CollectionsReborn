@@ -11,13 +11,21 @@ export function createBookmarkRow(
   const li = document.createElement('li');
   li.className = `bookmark-row bookmark-row--${entry.type}`;
   li.dataset.id = entry.id;
-  if (entry.type === 'folder') li.dataset.dropHint = 'Move into folder';
+  li.dataset.movable = String(entry.capabilities.canMove);
+  if (entry.type === 'folder') {
+    li.dataset.acceptsChildren = String(entry.capabilities.canCreateChildren);
+    if (entry.capabilities.canCreateChildren) li.dataset.dropHint = 'Move into folder';
+  }
   li.setAttribute('role', 'listitem');
 
   const handle = document.createElement('span');
   handle.className = 'drag-handle';
   handle.setAttribute('aria-hidden', 'true');
   handle.title = 'Drag to reorder or move into a folder';
+  if (!entry.capabilities.canMove) {
+    li.classList.add('bookmark-row--not-draggable');
+    handle.title = 'This item cannot be moved';
+  }
   handle.innerHTML = svgDragHandle();
 
   const menuBtn = buildMenuBtn(entry, callbacks);
@@ -194,19 +202,19 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
   if (entry.type === 'folder') {
     return [
       { label: 'Open', action: () => callbacks.onNavigateToFolder(entry.id) },
-      { label: 'Rename…', action: () => callbacks.onRenameFolder(entry as FolderEntryViewModel) },
-      { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
+      { label: 'Rename…', action: () => callbacks.onRenameFolder(entry as FolderEntryViewModel), disabled: !entry.capabilities.canRename, disabledReason: 'This browser folder cannot be renamed' },
+      { label: 'Move to…', action: () => callbacks.onMoveItem(entry), disabled: !entry.capabilities.canMove, disabledReason: 'This item cannot be moved' },
       { type: 'separator' as const },
-      { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
-      { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },
+      { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before'), disabled: !entry.capabilities.canCreateFolderBefore, disabledReason: 'A folder cannot be created here' },
+      { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after'), disabled: !entry.capabilities.canCreateFolderAfter, disabledReason: 'A folder cannot be created here' },
       { type: 'separator' as const },
-      { label: 'Delete', variant: 'danger' as const, action: () => callbacks.onDeleteItem(entry) },
+      { label: 'Delete', variant: 'danger' as const, action: () => callbacks.onDeleteItem(entry), disabled: !entry.capabilities.canDelete, disabledReason: 'This item cannot be deleted' },
     ];
   } else {
     return [
       { label: 'Open', action: () => callbacks.onOpenLink(entry as LinkEntryViewModel) },
-      { label: 'Edit…', action: () => callbacks.onEditLink(entry as LinkEntryViewModel) },
-      { label: 'Move to…', action: () => callbacks.onMoveItem(entry) },
+      { label: 'Edit…', action: () => callbacks.onEditLink(entry as LinkEntryViewModel), disabled: !entry.capabilities.canEditUrl, disabledReason: 'This bookmark cannot be edited' },
+      { label: 'Move to…', action: () => callbacks.onMoveItem(entry), disabled: !entry.capabilities.canMove, disabledReason: 'This item cannot be moved' },
       {
         label: entry.preview?.status === 'ok' ? 'Update preview' : 'Generate preview',
         action: () => callbacks.onGeneratePreview(entry),
@@ -214,12 +222,12 @@ function buildMenuItems(entry: BookmarkEntryViewModel, callbacks: FolderViewCall
       ...(entry.preview && entry.preview.status !== 'none'
         ? [{ label: 'Remove preview', action: () => callbacks.onRemovePreview(entry) }]
         : []),
-      { label: 'Update URL from current tab', action: () => callbacks.onUpdateLinkUrlFromCurrentTab(entry as LinkEntryViewModel) },
+      { label: 'Update URL from current tab', action: () => callbacks.onUpdateLinkUrlFromCurrentTab(entry as LinkEntryViewModel), disabled: !entry.capabilities.canEditUrl, disabledReason: 'This bookmark URL cannot be edited' },
       { type: 'separator' as const },
-      { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before') },
-      { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after') },
+      { label: 'New folder before…', action: () => callbacks.onCreateFolderNearItem(entry, 'before'), disabled: !entry.capabilities.canCreateFolderBefore, disabledReason: 'A folder cannot be created here' },
+      { label: 'New folder after…', action: () => callbacks.onCreateFolderNearItem(entry, 'after'), disabled: !entry.capabilities.canCreateFolderAfter, disabledReason: 'A folder cannot be created here' },
       { type: 'separator' as const },
-      { label: 'Delete', variant: 'danger' as const, action: () => callbacks.onDeleteItem(entry) },
+      { label: 'Delete', variant: 'danger' as const, action: () => callbacks.onDeleteItem(entry), disabled: !entry.capabilities.canDelete, disabledReason: 'This item cannot be deleted' },
     ];
   }
 }

@@ -9,7 +9,7 @@ export function showMoveToDialog(
   const disabledIds = buildDisabledSet(item, fullTree);
   const choices = allFolders.map((f) => ({
     ...f,
-    disabled: disabledIds.has(f.id),
+    disabled: disabledIds.has(f.id) || !f.canCreateChildren,
     isCurrent: f.id === item.parentId,
   }));
 
@@ -55,7 +55,11 @@ export function showMoveToDialog(
         row.setAttribute('role', 'option');
         row.dataset.id = choice.id;
 
-        if (choice.disabled) row.classList.add('move-folder-row--disabled');
+        if (choice.disabled) {
+          row.classList.add('move-folder-row--disabled');
+          row.setAttribute('aria-disabled', 'true');
+          row.title = 'This folder cannot accept items';
+        }
         if (choice.isCurrent) row.classList.add('move-folder-row--current');
         if (choice.id === selectedId) row.classList.add('move-folder-row--selected');
 

@@ -47,6 +47,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       productResearchEntries(),
       false,
       true,
+      true,
       DEFAULT_PREVIEW_SIZE,
       false,
       callbacks,
@@ -59,6 +60,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       { id: '20', title: 'Launch Reading List' },
       launchEntries(),
       false,
+      true,
       true,
       DEFAULT_PREVIEW_SIZE,
       false,
@@ -75,6 +77,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       productResearchEntries(),
       false,
       true,
+      true,
       DEFAULT_PREVIEW_SIZE,
       false,
       callbacks,
@@ -90,6 +93,7 @@ function renderScenario(container: HTMLElement, name: string): void {
       { id: '30', title: 'Design References' },
       designEntries(),
       false,
+      true,
       true,
       DEFAULT_PREVIEW_SIZE,
       false,
@@ -115,6 +119,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     { id: '1', title: 'Bookmarks Bar' },
     mainEntries(),
     false,
+    true,
     true,
     DEFAULT_PREVIEW_SIZE,
     false,
@@ -212,7 +217,7 @@ function designEntries(): BookmarkEntryViewModel[] {
 }
 
 function folder(id: string, parentId: string, index: number, title: string, childCount: number): BookmarkEntryViewModel {
-  return { type: 'folder', id, parentId, index, title, childCount };
+  return { type: 'folder', id, parentId, index, title, childCount, capabilities: editableCapabilities };
 }
 
 function link(
@@ -232,6 +237,7 @@ function link(
     url,
     domain,
     faviconUrl: faviconDataUrl(domain),
+    capabilities: editableCapabilities,
   };
 }
 
@@ -244,15 +250,26 @@ function faviconDataUrl(domain: string): string {
 
 function folderChoices(): FolderChoice[] {
   return [
-    { id: '1', title: 'Bookmarks Bar', path: 'Bookmarks Bar', depth: 0 },
-    { id: '10', title: 'Product Research', path: 'Bookmarks Bar / Product Research', depth: 1 },
-    { id: '21', title: 'Chrome Developers', path: 'Bookmarks Bar / Product Research / Chrome Developers', depth: 2 },
-    { id: '22', title: 'Microsoft Learn', path: 'Bookmarks Bar / Product Research / Microsoft Learn', depth: 2 },
-    { id: '20', title: 'Launch Reading List', path: 'Bookmarks Bar / Launch Reading List', depth: 1 },
-    { id: '30', title: 'Design References', path: 'Bookmarks Bar / Design References', depth: 1 },
-    { id: '40', title: 'Archive', path: 'Bookmarks Bar / Archive', depth: 1 },
+    { id: '1', title: 'Bookmarks Bar', path: 'Bookmarks Bar', depth: 0, canCreateChildren: true },
+    { id: '10', title: 'Product Research', path: 'Bookmarks Bar / Product Research', depth: 1, canCreateChildren: true },
+    { id: '21', title: 'Chrome Developers', path: 'Bookmarks Bar / Product Research / Chrome Developers', depth: 2, canCreateChildren: true },
+    { id: '22', title: 'Microsoft Learn', path: 'Bookmarks Bar / Product Research / Microsoft Learn', depth: 2, canCreateChildren: true },
+    { id: '20', title: 'Launch Reading List', path: 'Bookmarks Bar / Launch Reading List', depth: 1, canCreateChildren: true },
+    { id: '30', title: 'Design References', path: 'Bookmarks Bar / Design References', depth: 1, canCreateChildren: true },
+    { id: '40', title: 'Archive', path: 'Bookmarks Bar / Archive', depth: 1, canCreateChildren: true },
   ];
 }
+
+const editableCapabilities = {
+  canRename: true,
+  canEditUrl: true,
+  canMove: true,
+  canDelete: true,
+  canCreateFolderBefore: true,
+  canCreateFolderAfter: true,
+  canCreateChildren: true,
+  canSortChildren: true,
+};
 
 function demoTree(): chrome.bookmarks.BookmarkTreeNode[] {
   return [

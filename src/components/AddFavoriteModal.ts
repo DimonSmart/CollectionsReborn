@@ -56,19 +56,25 @@ export function showAddFavoriteModal(
       const opt = document.createElement('option');
       opt.value = folder.id;
       opt.textContent = folder.path || folder.title;
+      opt.disabled = !folder.canCreateChildren;
       select.appendChild(opt);
     }
 
     if (folders.length === 0) {
       const opt = document.createElement('option');
-      opt.value = '1';
-      opt.textContent = 'Bookmarks Bar';
+      opt.value = '';
+      opt.textContent = 'No writable folders';
+      opt.disabled = true;
       select.appendChild(opt);
     }
 
     if (defaultFolderId) {
       const opt = select.querySelector<HTMLOptionElement>(`option[value="${defaultFolderId}"]`);
       if (opt) select.value = defaultFolderId;
+    }
+    if (!select.selectedOptions[0] || select.selectedOptions[0].disabled) {
+      const firstWritable = [...select.options].find((option) => !option.disabled);
+      if (firstWritable) select.value = firstWritable.value;
     }
 
     const actions = document.createElement('div');
@@ -82,6 +88,7 @@ export function showAddFavoriteModal(
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn--primary';
     addBtn.textContent = 'Add';
+    addBtn.disabled = ![...select.options].some((option) => !option.disabled);
 
     const tryAdd = async () => {
       const t = titleInput.value.trim();

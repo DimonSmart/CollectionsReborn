@@ -4,6 +4,8 @@ export interface MenuActionItem {
   label: string;
   action: () => void;
   variant?: 'danger';
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface MenuSeparatorItem {
@@ -33,11 +35,15 @@ export function showActionsMenu(anchor: HTMLElement, items: MenuItem[]): void {
     btn.className =
       'actions-menu__item' + (item.variant === 'danger' ? ' actions-menu__item--danger' : '');
     btn.textContent = item.label;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeActionsMenu();
-      item.action();
-    });
+    btn.disabled = item.disabled === true;
+    if (item.disabledReason) btn.title = item.disabledReason;
+    if (!item.disabled) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeActionsMenu();
+        item.action();
+      });
+    }
     menu.appendChild(btn);
   }
 

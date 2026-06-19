@@ -1,9 +1,12 @@
+import type { BookmarkCapabilities } from './domain/bookmarkCapabilities.js';
+
 export interface BaseEntryViewModel {
   id: string;
   parentId: string;
   index: number;
   title: string;
   preview?: PreviewViewModel;
+  capabilities: BookmarkCapabilities;
 }
 
 export type PreviewStatus = 'none' | 'pending' | 'ok' | 'error' | 'skipped';
@@ -64,6 +67,7 @@ export interface FolderChoice {
   title: string;
   path: string;
   depth: number;
+  canCreateChildren: boolean;
 }
 
 export interface MoveToResult {

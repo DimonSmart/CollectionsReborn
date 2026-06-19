@@ -24,6 +24,7 @@ export function createFolderView(
   _folder: FolderInfo,
   entries: BookmarkEntryViewModel[],
   isSearching: boolean,
+  canDragItems: boolean,
   canReorder: boolean,
   previewSize: PreviewSize,
   showFaviconOverlay: boolean,
@@ -59,7 +60,7 @@ export function createFolderView(
 
   el.appendChild(list);
 
-  if (canReorder) {
+  if (canDragItems && entries.some((entry) => entry.capabilities.canMove)) {
     let folderDropTarget: HTMLElement | null = null;
 
     const setFolderDropTarget = (target: HTMLElement | null): void => {
@@ -71,6 +72,8 @@ export function createFolderView(
 
     activeSortable = Sortable.create(list, {
       handle: '.drag-handle',
+      filter: '.bookmark-row--not-draggable',
+      preventOnFilter: true,
       animation: 150,
       ghostClass: 'bookmark-row--ghost',
       dragClass: 'bookmark-row--dragging',
@@ -79,12 +82,14 @@ export function createFolderView(
         const dragged = evt.dragged as HTMLElement;
         const pointerY = getPointerClientY(originalEvent);
         const isFolderTarget = related.classList.contains('bookmark-row--folder')
+          && related.dataset.acceptsChildren === 'true'
           && related !== dragged
           && pointerY !== null
           && isInsideFolderDropZone(pointerY, evt.relatedRect.top, evt.relatedRect.height);
 
         setFolderDropTarget(isFolderTarget ? related : null);
-        return isFolderTarget ? false : undefined;
+        if (isFolderTarget) return false;
+        return canReorder ? undefined : false;
       },
       onEnd(evt) {
         const destinationFolderId = folderDropTarget?.dataset.id;
@@ -96,7 +101,7 @@ export function createFolderView(
         }
 
         const { oldIndex, newIndex } = evt;
-        if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
+        if (!canReorder || oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) return;
         const rows = [...list.querySelectorAll<HTMLElement>('[data-id]')];
         const reorderedId = rows[newIndex]?.dataset.id;
         if (reorderedId) callbacks.onReorder(reorderedId, newIndex);

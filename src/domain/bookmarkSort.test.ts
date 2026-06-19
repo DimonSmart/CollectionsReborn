@@ -2,8 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { calculateSortedOrder } from './bookmarkSort.js';
 import type { BookmarkEntryViewModel } from '../types.js';
 
+const capabilities = {
+  canRename: true,
+  canEditUrl: true,
+  canMove: true,
+  canDelete: true,
+  canCreateFolderBefore: true,
+  canCreateFolderAfter: true,
+  canCreateChildren: true,
+  canSortChildren: true,
+};
+
 function folder(id: string, title: string): BookmarkEntryViewModel {
-  return { type: 'folder', id, parentId: '1', index: 0, title, childCount: 0 };
+  return { type: 'folder', id, parentId: '1', index: 0, title, childCount: 0, capabilities };
 }
 
 function link(id: string, title: string, domain: string): BookmarkEntryViewModel {
@@ -16,6 +27,7 @@ function link(id: string, title: string, domain: string): BookmarkEntryViewModel
     url: `https://${domain}/`,
     domain,
     faviconUrl: '',
+    capabilities,
   };
 }
 

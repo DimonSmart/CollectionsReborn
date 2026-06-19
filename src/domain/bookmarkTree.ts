@@ -1,5 +1,6 @@
 import type { BookmarkEntryViewModel, FolderChoice } from '../types.js';
 import type { FaviconService } from '../services/faviconService.js';
+import { getBookmarkCapabilities } from './bookmarkCapabilities.js';
 
 export function findNodeById(
   tree: chrome.bookmarks.BookmarkTreeNode[],
@@ -53,6 +54,7 @@ export function getParentFolderId(
 }
 
 export function buildFolderEntries(
+  tree: chrome.bookmarks.BookmarkTreeNode[],
   folderNode: chrome.bookmarks.BookmarkTreeNode,
   faviconService: FaviconService,
 ): BookmarkEntryViewModel[] {
@@ -68,6 +70,7 @@ export function buildFolderEntries(
         url: child.url,
         domain,
         faviconUrl: faviconService.getFaviconUrl(child.url, 16),
+        capabilities: getBookmarkCapabilities(tree, child),
       };
     } else {
       return {
@@ -77,6 +80,7 @@ export function buildFolderEntries(
         index: child.index ?? 0,
         title: child.title,
         childCount: (child.children ?? []).length,
+        capabilities: getBookmarkCapabilities(tree, child),
       };
     }
   });
@@ -110,7 +114,7 @@ export function searchBookmarkTree(
   const visit = (nodes: chrome.bookmarks.BookmarkTreeNode[]): void => {
     for (const node of nodes) {
       if (node.id !== getVirtualRootId(tree) && nodeMatchesSearch(node, q, faviconService)) {
-        results.push(buildEntryFromNode(node, faviconService));
+        results.push(buildEntryFromNode(tree, node, faviconService));
       }
       if (node.children) visit(node.children);
     }
@@ -132,6 +136,7 @@ function nodeMatchesSearch(
 }
 
 function buildEntryFromNode(
+  tree: chrome.bookmarks.BookmarkTreeNode[],
   node: chrome.bookmarks.BookmarkTreeNode,
   faviconService: FaviconService,
 ): BookmarkEntryViewModel {
@@ -146,6 +151,7 @@ function buildEntryFromNode(
       url: node.url,
       domain,
       faviconUrl: faviconService.getFaviconUrl(node.url, 16),
+      capabilities: getBookmarkCapabilities(tree, node),
     };
   }
 
@@ -156,6 +162,7 @@ function buildEntryFromNode(
     index: node.index ?? 0,
     title: node.title,
     childCount: (node.children ?? []).length,
+    capabilities: getBookmarkCapabilities(tree, node),
   };
 }
 
@@ -174,7 +181,13 @@ export function collectAllFolders(
     for (const n of nodes) {
       if (!n.url) {
         const nodePath = path ? `${path} / ${n.title}` : n.title;
-        folders.push({ id: n.id, title: n.title, path: nodePath, depth });
+        folders.push({
+          id: n.id,
+          title: n.title,
+          path: nodePath,
+          depth,
+          canCreateChildren: getBookmarkCapabilities(tree, n).canCreateChildren,
+        });
         traverse(n.children ?? [], nodePath, depth + 1);
       }
     }
