@@ -72,47 +72,53 @@ Run these scenarios after each significant change to verify nothing is broken.
     - Drop it at a new position
     - Reopen Edge/Chrome → confirm the new order persisted in browser bookmarks
 
-13. **Sort: Folders first**
+13. **Drag into folder**
+    - Drag a link or folder over the middle of another folder card
+    - Verify that the card is highlighted and shows "Move into folder"
+    - Drop the item and verify that it appears at the end of the destination folder
+    - Drag over the top or bottom edge of a folder and verify that regular reordering still works
+
+14. **Sort: Folders first**
     - Click the sort icon (≡) in the folder header
     - Select "Folders first"
     - All folders appear before all links
     - Reopen Edge/Chrome → confirm order is saved
 
-14. **Sort: Links first**
+15. **Sort: Links first**
     - Select "Links first"
     - All links appear before all folders
     - Confirm order persists after reload
 
-15. **Sort: Title A–Z**
+16. **Sort: Title A–Z**
     - Select "Sort by title A–Z"
     - Items are in alphabetical ascending order
     - Confirm order persists after reload
 
-16. **Sort unavailable during search**
+17. **Sort unavailable during search**
     - Type something in the search box
     - The sort button (≡) should be hidden
     - Clear search → sort button reappears
 
-17. **Sort unavailable on virtual root**
+18. **Sort unavailable on virtual root**
     - Navigate to the virtual root screen (back from Bookmarks Bar)
     - No sort button should appear in the header
 
-18. **Delete link**
+19. **Delete link**
     - Open context menu → Delete
     - Confirm deletion
     - Item is removed from the list
 
-19. **Delete folder**
+20. **Delete folder**
     - Open context menu on a folder → Delete
     - Confirm deletion
     - Folder and all its contents are removed
 
-20. **Persist folder selection across reload**
+21. **Persist folder selection across reload**
     - Navigate into a subfolder
     - Close and reopen the side panel
     - The same subfolder should be shown on reopening
 
-21. **Deleted folder fallback**
+22. **Deleted folder fallback**
     - Delete a bookmark folder externally (via browser bookmark manager)
     - Reopen side panel
     - Should show the virtual root screen instead of an error

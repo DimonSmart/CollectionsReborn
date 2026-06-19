@@ -37,6 +37,7 @@ function renderScenario(container: HTMLElement, name: string): void {
     onRemovePreview: () => undefined,
     onUpdateLinkUrlFromCurrentTab: () => undefined,
     onReorder: () => undefined,
+    onMoveIntoFolder: () => undefined,
     onSortFolder: () => undefined,
   };
 

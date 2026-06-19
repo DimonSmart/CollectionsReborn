@@ -198,6 +198,7 @@ export class App {
         onRemovePreview: (item) => void this.removePreview(item),
         onUpdateLinkUrlFromCurrentTab: (item) => void this.updateLinkUrlFromCurrentTab(item),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
+        onMoveIntoFolder: (itemId, folderId) => this.moveItemIntoFolder(itemId, folderId),
         onSortFolder: (action) => this.sortFolder(action),
       },
     );
@@ -304,6 +305,16 @@ export class App {
       await this.operationsService.reorderItemInFolder(itemId, this.currentFolderId, newIndex);
     } catch (err) {
       console.error('Reorder failed:', err);
+      await this.reloadTree();
+    }
+  }
+
+  private async moveItemIntoFolder(itemId: string, folderId: string): Promise<void> {
+    try {
+      await this.operationsService.moveItemToFolder(itemId, { folderId, placement: 'end' });
+      await this.reloadTree();
+    } catch (err) {
+      await showInfo(`Could not move into folder: ${String(err)}`);
       await this.reloadTree();
     }
   }
@@ -638,13 +649,16 @@ export class App {
     entries: BookmarkEntryViewModel[],
     version: number,
   ): Promise<void> {
-    const keys = entries.map((entry) => entry.type === 'folder' ? getFolderPreviewKey(entry.id) : getLinkPreviewKey(entry.id));
+    const keys = entries
+      .filter((entry): entry is LinkEntryViewModel => entry.type === 'link')
+      .map((entry) => getLinkPreviewKey(entry.id));
     const records = await this.previewDb.getMany(keys);
     if (version !== this.renderVersion) return;
 
     const recordsByKey = new Map(records.map((record) => [record.key, record]));
     const entriesWithPreviews = entries.map((entry) => {
-      const key = entry.type === 'folder' ? getFolderPreviewKey(entry.id) : getLinkPreviewKey(entry.id);
+      if (entry.type === 'folder') return entry;
+      const key = getLinkPreviewKey(entry.id);
       const record = recordsByKey.get(key);
       if (record?.status === 'ok' && record.blob) {
         const objectUrl = URL.createObjectURL(record.blob);
@@ -685,6 +699,7 @@ export class App {
         onRemovePreview: (item) => void this.removePreview(item),
         onUpdateLinkUrlFromCurrentTab: (item) => void this.updateLinkUrlFromCurrentTab(item),
         onReorder: (itemId, newIndex) => this.reorderItem(itemId, newIndex),
+        onMoveIntoFolder: (itemId, folderId) => this.moveItemIntoFolder(itemId, folderId),
         onSortFolder: (action) => this.sortFolder(action),
       },
     );

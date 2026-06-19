@@ -51,6 +51,7 @@ export interface FolderViewCallbacks {
   onRemovePreview: (item: BookmarkEntryViewModel) => void;
   onUpdateLinkUrlFromCurrentTab: (item: LinkEntryViewModel) => void;
   onReorder: (itemId: string, newIndex: number) => void;
+  onMoveIntoFolder: (itemId: string, folderId: string) => void;
   onSortFolder: (action: SortAction) => void;
 }
 

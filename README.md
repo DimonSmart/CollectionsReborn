@@ -150,8 +150,8 @@ The side panel shows the direct children of the current folder — subfolders an
 ### Compact layout (only mode)
 All items are displayed in a dense list. There are no Compact/Normal/Full view modes.
 
-### Mouse drag-and-drop reorder
-Folders and links inside the current folder can be reordered by dragging. Grab the `⋮⋮` handle on the left of any row and drag it to a new position. The new order is written to browser bookmarks immediately. Reorder is disabled while a search is active.
+### Mouse drag-and-drop reorder and folder moves
+Folders and links inside the current folder can be reordered by dragging. Grab the `⋮⋮` handle on the left of any row and drag it to a new position. Drop over the highlighted middle of a folder card to move the item into that folder; use the top or bottom edge to place it before or after the folder. Changes are written to browser bookmarks immediately. Drag-and-drop is disabled while a search is active.
 
 ### Move to another folder
 Open the `⋯` menu on any row and choose **Move to…** to move it to a different folder. A dialog shows the full bookmark tree with search. The current folder is marked and disabled as a target. Moving a folder disables itself and all its descendants as targets (to prevent cycles).
