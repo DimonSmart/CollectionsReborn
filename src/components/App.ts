@@ -90,6 +90,11 @@ export class App {
   private buildLayout(): void {
     this.root.innerHTML = '';
 
+    const folderTitle = document.createElement('div');
+    folderTitle.className = 'current-folder-title';
+    folderTitle.setAttribute('role', 'heading');
+    folderTitle.setAttribute('aria-level', '1');
+
     const topBar = document.createElement('div');
     topBar.className = 'top-bar';
 
@@ -138,7 +143,7 @@ export class App {
     });
 
     topBar.append(upBtn, searchInput, addBtn, menuBtn);
-    this.root.appendChild(topBar);
+    this.root.append(folderTitle, topBar);
 
     const viewContainer = document.createElement('main');
     viewContainer.id = 'folder-view-container';
@@ -405,6 +410,11 @@ export class App {
       action: () => void this.sortFolder('domain-asc'),
       disabled: !canSort,
       disabledReason: 'This folder cannot be sorted',
+    });
+    items.push({ type: 'separator' });
+    items.push({
+      label: 'Settings…',
+      action: () => void chrome.runtime.openOptionsPage(),
     });
 
     showActionsMenu(anchor, items);
@@ -774,11 +784,17 @@ export class App {
 
   private updateTopBar(): void {
     const upBtn = this.root.querySelector<HTMLButtonElement>('.top-folder-up-btn');
-    if (!upBtn) return;
+    const folderTitle = this.root.querySelector<HTMLElement>('.current-folder-title');
+    const currentNode = findNodeById(this.bookmarkTree, this.currentFolderId);
+    if (!upBtn || !folderTitle || !currentNode) return;
 
     const canGoUp = canNavigateBack(this.bookmarkTree, this.currentFolderId);
     upBtn.disabled = !canGoUp;
     upBtn.setAttribute('aria-disabled', String(!canGoUp));
+
+    const title = this.displayTitle(currentNode);
+    folderTitle.textContent = title;
+    folderTitle.title = title;
   }
 
   private attachBookmarkListeners(): void {
