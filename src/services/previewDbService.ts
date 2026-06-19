@@ -36,43 +36,6 @@ export interface PreviewRecord {
   sourcePreviewKeys?: string[];
 }
 
-export interface PreviewQueueItem {
-  bookmarkId: string;
-  title: string;
-  url: string;
-  status: 'pending' | 'running' | 'generated' | 'failed' | 'skipped';
-  errorCode?: PreviewErrorCode;
-}
-
-export interface RecentPreviewInfo {
-  bookmarkId: string;
-  title: string;
-  url: string;
-  previewKey: string;
-  generatedAt: number;
-  byteSize: number;
-}
-
-export interface PreviewGenerationJob {
-  id: string;
-  status: 'idle' | 'running' | 'stopping' | 'stopped' | 'completed' | 'failed';
-  createdAt: number;
-  startedAt?: number;
-  finishedAt?: number;
-  total: number;
-  processed: number;
-  generated: number;
-  failed: number;
-  skipped: number;
-  pending: number;
-  currentBookmarkId?: string;
-  currentUrl?: string;
-  currentTitle?: string;
-  queue: PreviewQueueItem[];
-  recentGenerated: RecentPreviewInfo[];
-  errorMessage?: string;
-}
-
 export interface PreviewStorageStats {
   totalBytes: number;
   totalCount: number;
@@ -82,9 +45,8 @@ export interface PreviewStorageStats {
 }
 
 const DB_NAME = 'collections_reborn_previews';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const PREVIEWS_STORE = 'previews';
-const JOBS_STORE = 'preview_generation_jobs';
 
 export class PreviewDbService {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -229,19 +191,6 @@ export class PreviewDbService {
     }
   }
 
-  async saveJob(job: PreviewGenerationJob): Promise<void> {
-    await this.request(JOBS_STORE, 'readwrite', (store) => store.put(job));
-  }
-
-  async getJob(id: string): Promise<PreviewGenerationJob | undefined> {
-    return this.request<PreviewGenerationJob | undefined>(JOBS_STORE, 'readonly', (store) => store.get(id));
-  }
-
-  async getLatestJob(): Promise<PreviewGenerationJob | undefined> {
-    const jobs = await this.request<PreviewGenerationJob[]>(JOBS_STORE, 'readonly', (store) => store.getAll());
-    return jobs.sort((a, b) => b.createdAt - a.createdAt)[0];
-  }
-
   private async request<T = unknown>(
     storeName: string,
     mode: IDBTransactionMode,
@@ -271,8 +220,8 @@ export class PreviewDbService {
           previews.createIndex('lastAccessedAt', 'lastAccessedAt');
           previews.createIndex('failedAt', 'failedAt');
         }
-        if (!db.objectStoreNames.contains(JOBS_STORE)) {
-          db.createObjectStore(JOBS_STORE, { keyPath: 'id' });
+        if (db.objectStoreNames.contains('preview_generation_jobs')) {
+          db.deleteObjectStore('preview_generation_jobs');
         }
       };
       request.onsuccess = () => resolve(request.result);

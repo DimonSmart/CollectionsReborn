@@ -39,6 +39,8 @@ import { getFolderPreviewKey, getLinkPreviewKey } from '../domain/previewKeys.js
 import { PREVIEW_CAPTURE_PERMISSION_ORIGINS } from '../domain/previewPermissions.js';
 import { validatePreviewUrl } from '../domain/previewUrlRules.js';
 import { getBookmarkCapabilities, type BookmarkCapabilities } from '../domain/bookmarkCapabilities.js';
+import { BingSavesImportView } from './BingSavesImportView.js';
+import { PreviewSettingsView } from './PreviewSettingsView.js';
 
 export class App {
   private root: HTMLElement;
@@ -48,8 +50,8 @@ export class App {
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
   private previewObjectUrls: string[] = [];
   private previewSize: PreviewSize = DEFAULT_PREVIEW_SIZE;
-  private showFaviconOverlay = false;
   private renderVersion = 0;
+  private viewMode: 'bookmarks' | 'settings' | 'bing-import' = 'bookmarks';
 
   constructor(
     private readonly container: HTMLElement,
@@ -79,12 +81,12 @@ export class App {
     this.bookmarkTree = tree;
     this.currentFolderId = resolveStartupFolder(tree, settings.currentFolderId);
     this.previewSize = previewSettings.previewSize;
-    this.showFaviconOverlay = previewSettings.showFaviconOverlay;
 
     this.buildLayout();
     this.render();
     this.attachBookmarkListeners();
     this.attachPreviewSettingsListener();
+    if (!settings.edgeCollectionsImportPromptShown) void this.showEdgeCollectionsImport();
   }
 
   private buildLayout(): void {
@@ -192,7 +194,6 @@ export class App {
       canDragItems,
       canReorder,
       this.previewSize,
-      this.showFaviconOverlay,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
         onNavigateBack: () => this.navigateBack(),
@@ -414,10 +415,53 @@ export class App {
     items.push({ type: 'separator' });
     items.push({
       label: 'Settings…',
-      action: () => void chrome.runtime.openOptionsPage(),
+      action: () => void this.showSettingsView(),
     });
 
     showActionsMenu(anchor, items);
+  }
+
+  private async showEdgeCollectionsImport(onClose = () => this.showBookmarksView()): Promise<void> {
+    this.viewMode = 'bing-import';
+    this.revokePreviewObjectUrls();
+    const view = new BingSavesImportView(
+      this.root,
+      this.currentFolderId,
+      this.bookmarksService,
+      this.storageService,
+      onClose,
+    );
+    try {
+      await view.init();
+    } catch {
+      onClose();
+      await showInfo('Could not open the Edge Collections importer.');
+    }
+  }
+
+  private async showSettingsView(): Promise<void> {
+    this.viewMode = 'settings';
+    this.revokePreviewObjectUrls();
+    const view = new PreviewSettingsView(
+      this.root,
+      this.previewDb,
+      this.previewSettings,
+      this.storageService,
+      () => this.showBookmarksView(),
+      () => void this.showEdgeCollectionsImport(() => void this.showSettingsView()),
+    );
+    try {
+      await view.init();
+    } catch {
+      this.showBookmarksView();
+      await showInfo('Could not open settings.');
+    }
+  }
+
+  private showBookmarksView(): void {
+    this.viewMode = 'bookmarks';
+    this.buildLayout();
+    this.render();
   }
 
   private async createFolder(): Promise<void> {
@@ -482,9 +526,7 @@ export class App {
     }
 
     const previewSettings = await this.previewSettings.load();
-    const shouldCapturePreview = previewSettings.enabled
-      && previewSettings.autoGenerateForNewFavorites
-      && validatePreviewUrl(tab.url).ok;
+    const shouldCapturePreview = previewSettings.enabled && validatePreviewUrl(tab.url).ok;
     let canCapturePreview = false;
 
     const result = await showAddFavoriteModal(tab.url, tab.title, allFolders, defaultFolderId, {
@@ -508,11 +550,10 @@ export class App {
 
   private async openLink(item: LinkEntryViewModel): Promise<void> {
     const settings = await this.previewSettings.load();
-    const existing = settings.enabled && settings.autoGenerateWhenOpened
+    const existing = settings.enabled
       ? await this.previewDb.get(getLinkPreviewKey(item.id))
       : undefined;
     const shouldGenerate = settings.enabled
-      && settings.autoGenerateWhenOpened
       && !(existing?.status === 'ok' && existing.blob);
     const hasPermission = shouldGenerate ? await hasPreviewCapturePermission() : true;
 
@@ -561,7 +602,7 @@ export class App {
   ): Promise<void> {
     try {
       const settings = await this.previewSettings.load();
-      if (!settings.enabled || !settings.autoGenerateForNewFavorites) return;
+      if (!settings.enabled) return;
       const tab = await this.tabsService.getActiveTab();
       const windowId = tab?.windowId;
       if (windowId === undefined) return;
@@ -691,7 +732,7 @@ export class App {
 
   private async reloadTree(): Promise<void> {
     this.bookmarkTree = await this.bookmarksService.getTree();
-    this.render();
+    if (this.viewMode === 'bookmarks') this.render();
   }
 
   private async loadPreviewsForEntries(
@@ -737,7 +778,6 @@ export class App {
       !isSearching && folderCapabilities.canCreateChildren,
       !isSearching && folderCapabilities.canSortChildren,
       this.previewSize,
-      this.showFaviconOverlay,
       {
         onNavigateToFolder: (id) => this.navigateTo(id),
         onNavigateBack: () => this.navigateBack(),
@@ -826,15 +866,9 @@ export class App {
 
   private async refreshPreviewDisplaySettings(): Promise<void> {
     const settings = await this.previewSettings.load();
-    if (
-      settings.previewSize === this.previewSize
-      && settings.showFaviconOverlay === this.showFaviconOverlay
-    ) {
-      return;
-    }
+    if (settings.previewSize === this.previewSize) return;
     this.previewSize = settings.previewSize;
-    this.showFaviconOverlay = settings.showFaviconOverlay;
-    this.render();
+    if (this.viewMode === 'bookmarks') this.render();
   }
 
   private async requireCapability(

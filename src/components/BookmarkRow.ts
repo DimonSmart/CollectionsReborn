@@ -6,7 +6,6 @@ const BROWSER_PAGE_PROTOCOLS = new Set(['chrome:', 'edge:', 'about:', 'devtools:
 export function createBookmarkRow(
   entry: BookmarkEntryViewModel,
   callbacks: FolderViewCallbacks,
-  options: { showFaviconOverlay: boolean } = { showFaviconOverlay: false },
 ): HTMLElement {
   const li = document.createElement('li');
   li.className = `bookmark-row bookmark-row--${entry.type}`;
@@ -35,7 +34,7 @@ export function createBookmarkRow(
     li.setAttribute('aria-label', `Open folder ${entry.title}, ${formatBookmarkCount(entry.childCount)}`);
     li.append(handle, buildFolderIcon(), buildInfo(entry), buildFolderChevron(), menuBtn);
   } else {
-    li.append(handle, buildLinkPreview(entry, options), buildInfo(entry), menuBtn);
+    li.append(handle, buildLinkPreview(entry), buildInfo(entry), menuBtn);
   }
 
   li.addEventListener('click', (e) => {
@@ -58,10 +57,7 @@ export function createBookmarkRow(
   return li;
 }
 
-function buildLinkPreview(
-  entry: LinkEntryViewModel,
-  options: { showFaviconOverlay: boolean },
-): HTMLElement {
+function buildLinkPreview(entry: LinkEntryViewModel): HTMLElement {
   const el = document.createElement('span');
   el.className = 'row-preview';
   el.setAttribute('aria-hidden', 'true');
@@ -71,9 +67,6 @@ function buildLinkPreview(
     img.src = entry.preview.objectUrl;
     img.alt = '';
     el.appendChild(img);
-    if (options.showFaviconOverlay) {
-      el.appendChild(buildFaviconOverlay(entry));
-    }
     return el;
   }
 
@@ -141,21 +134,6 @@ function buildFolderChevron(): HTMLElement {
   chevron.setAttribute('aria-hidden', 'true');
   chevron.textContent = '›';
   return chevron;
-}
-
-function buildFaviconOverlay(entry: LinkEntryViewModel): HTMLElement {
-  const badge = document.createElement('span');
-  badge.className = 'row-preview-favicon';
-
-  const img = document.createElement('img');
-  img.src = entry.faviconUrl;
-  img.width = 16;
-  img.height = 16;
-  img.alt = '';
-  img.addEventListener('error', () => badge.remove());
-
-  badge.appendChild(img);
-  return badge;
 }
 
 function buildInfo(entry: BookmarkEntryViewModel): HTMLElement {

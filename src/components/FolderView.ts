@@ -27,7 +27,6 @@ export function createFolderView(
   canDragItems: boolean,
   canReorder: boolean,
   previewSize: PreviewSize,
-  showFaviconOverlay: boolean,
   callbacks: FolderViewCallbacks,
 ): HTMLElement {
   destroyActiveSortable();
@@ -55,7 +54,7 @@ export function createFolderView(
   list.style.setProperty('--bookmark-row-min-height', `${previewSizeOption.rowHeight}px`);
 
   for (const entry of entries) {
-    list.appendChild(createBookmarkRow(entry, callbacks, { showFaviconOverlay }));
+    list.appendChild(createBookmarkRow(entry, callbacks));
   }
 
   el.appendChild(list);

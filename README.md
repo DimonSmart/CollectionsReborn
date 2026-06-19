@@ -63,7 +63,8 @@ collections-reborn/
 │       ├── ActionsMenu.ts        # Contextual dropdown menu
 │       ├── ItemEditor.ts         # Rename / edit link dialogs
 │       ├── ConfirmModal.ts       # Delete confirmation dialog
-│       └── AddFavoriteModal.ts   # Add current page modal
+│       ├── AddFavoriteModal.ts   # Add current page modal
+│       └── BingSavesImportView.ts # Bing Saves import mode inside the side panel
 ├── styles/
 │   └── sidepanel.css       # All styles (CSS custom properties, light theme)
 ├── vite.config.ts
@@ -89,9 +90,10 @@ collections-reborn/
 | `favicon`   | Load site favicons via the browser's built-in favicon API |
 | `tabs`      | Read tab metadata and open bookmark links for preview generation |
 | `activeTab` | Work with the current tab when adding or previewing the current page |
+| `scripting` | Read Bing Saves from the user-opened authenticated Bing tab during import |
 | `<all_urls>` | Generate local bookmark preview thumbnails with the browser capture API |
 
-Host access is used only for local preview capture. Preview images are stored in the browser and are not uploaded.
+Host access is used for local preview capture and for the user-initiated, same-origin Bing Saves import request. Preview images and imported collection data are not uploaded by Collections Reborn.
 
 ---
 
@@ -165,6 +167,9 @@ Press the **+** button to add the active tab as a bookmark. A modal lets you cho
 
 ### Search in current folder
 The search box filters the current folder's children by title, URL, or domain. Drag handles are hidden while searching.
+
+### Import old Edge Collections
+Choose **Import old Edge Collections…** from the folder menu. The side panel switches to an import workflow and remains visible while Bing Saves opens in the main browser tab. After manual Microsoft sign-in, the user can check the available collections, choose a bookmark destination, and import them as folders and links.
 
 ---
 

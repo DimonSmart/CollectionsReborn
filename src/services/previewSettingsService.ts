@@ -38,28 +38,20 @@ export const STORED_THUMBNAIL_HEIGHT = 198;
 
 export interface PreviewSettings {
   enabled: boolean;
-  autoGenerateForNewFavorites: boolean;
-  autoGenerateWhenOpened: boolean;
-  showFaviconOverlay: boolean;
   previewSize: PreviewSize;
   imageFormat: 'image/webp' | 'image/jpeg';
   imageQuality: number;
   maxStorageMb: number;
-  recentPreviewCount: number;
   excludedDomains: string[];
   skipPrivateHosts: boolean;
 }
 
 export const DEFAULT_PREVIEW_SETTINGS: PreviewSettings = {
   enabled: true,
-  autoGenerateForNewFavorites: true,
-  autoGenerateWhenOpened: true,
-  showFaviconOverlay: false,
   previewSize: DEFAULT_PREVIEW_SIZE,
   imageFormat: 'image/webp',
   imageQuality: 0.7,
   maxStorageMb: 120,
-  recentPreviewCount: 12,
   excludedDomains: [],
   skipPrivateHosts: false,
 };
@@ -71,8 +63,13 @@ export class PreviewSettingsService {
     const result = await chrome.storage.local.get(PREVIEW_SETTINGS_STORAGE_KEY);
     const settings = { ...DEFAULT_PREVIEW_SETTINGS, ...(result[PREVIEW_SETTINGS_STORAGE_KEY] ?? {}) };
     return {
-      ...settings,
+      enabled: settings.enabled === true,
       previewSize: isPreviewSize(settings.previewSize) ? settings.previewSize : DEFAULT_PREVIEW_SIZE,
+      imageFormat: settings.imageFormat === 'image/jpeg' ? 'image/jpeg' : 'image/webp',
+      imageQuality: typeof settings.imageQuality === 'number' ? settings.imageQuality : DEFAULT_PREVIEW_SETTINGS.imageQuality,
+      maxStorageMb: typeof settings.maxStorageMb === 'number' ? settings.maxStorageMb : DEFAULT_PREVIEW_SETTINGS.maxStorageMb,
+      excludedDomains: Array.isArray(settings.excludedDomains) ? settings.excludedDomains : [],
+      skipPrivateHosts: settings.skipPrivateHosts === true,
     };
   }
 

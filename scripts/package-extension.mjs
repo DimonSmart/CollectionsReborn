@@ -10,7 +10,7 @@ const distDir = join(root, 'dist');
 const releaseDir = join(root, 'release');
 const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 const zipPath = join(releaseDir, `collections-reborn-${packageJson.version}.zip`);
-const allowedPermissions = new Set(['bookmarks', 'sidePanel', 'storage', 'favicon', 'tabs', 'activeTab']);
+const allowedPermissions = new Set(['bookmarks', 'sidePanel', 'storage', 'favicon', 'tabs', 'activeTab', 'scripting']);
 const allowedHostPermissions = new Set(['<all_urls>']);
 
 const requiredFiles = [
