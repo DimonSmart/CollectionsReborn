@@ -4,7 +4,7 @@
 
 - [ ] Screenshots are real PNG files, not JPEG files with `.png` extension.
 - [ ] All screenshots are 1280x800.
-- [ ] Promo images have correct PNG format and dimensions.
+- [ ] Promo images are 24-bit RGB PNG files without alpha and have correct dimensions.
 - [ ] Logo images have correct PNG format and dimensions.
 - [ ] Privacy policy URL is public and opens without authentication.
 - [ ] Support URL is public.
@@ -49,6 +49,7 @@
 - [ ] Add single purpose
 - [ ] Upload 128x128 icon if required separately
 - [ ] Upload 440x280 small promotional image
+- [ ] Upload 1400x560 marquee promotional image
 - [ ] Upload screenshots, preferably 5
 - [ ] Choose visibility: Unlisted or Public
 - [ ] Submit for review with deferred publishing if available

@@ -89,3 +89,30 @@ organizer
 ## Screenshot notes
 
 The drag-and-drop reorder screenshot shows visible drag handles and a row in the selected drag state to demonstrate the reorder affordance.
+
+## Regenerating store assets
+
+Generate the logo and both Chrome promotional images:
+
+```bash
+npm run assets:store
+```
+
+The promotional files are generated as 24-bit RGB PNG images without an alpha channel:
+
+- `small-promo-440x280.png` — 440x280
+- `marquee-1400x560.png` — 1400x560
+
+To refresh screenshots after a UI change, ask Codex:
+
+> Regenerate the store assets and all five screenshots from `sidepanel-demo.html` using the scenarios in `src/demo/storeScreenshots.ts`. Save screenshots as 1280x800 PNG files under `docs/store/assets/screenshots`, regenerate the 440x280 and 1400x560 Chrome promotional images as 24-bit PNG files without alpha, and run `npm run verify:store-assets`.
+
+The five screenshot scenarios and output filenames are:
+
+| Scenario | Output file |
+|---|---|
+| `main` | `01-main-side-panel.png` |
+| `folder` | `02-folder-navigation.png` |
+| `reorder` | `03-drag-and-drop-reorder.png` |
+| `move` | `04-move-to-folder-dialog.png` |
+| `add` | `05-add-current-page.png` |

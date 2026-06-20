@@ -5,6 +5,17 @@ import { showActionsMenu } from '../components/ActionsMenu.js';
 import { DEFAULT_PREVIEW_SIZE } from '../services/previewSettingsService.js';
 import type { BookmarkEntryViewModel, FolderChoice, FolderViewCallbacks } from '../types.js';
 
+const editableCapabilities = {
+  canRename: true,
+  canEditUrl: true,
+  canMove: true,
+  canDelete: true,
+  canCreateFolderBefore: true,
+  canCreateFolderAfter: true,
+  canCreateChildren: true,
+  canSortChildren: true,
+};
+
 const app = document.getElementById('app');
 const scenario = new URLSearchParams(location.search).get('scenario') ?? 'main';
 
@@ -254,17 +265,6 @@ function folderChoices(): FolderChoice[] {
     { id: '40', title: 'Archive', path: 'Bookmarks Bar / Archive', depth: 1, canCreateChildren: true },
   ];
 }
-
-const editableCapabilities = {
-  canRename: true,
-  canEditUrl: true,
-  canMove: true,
-  canDelete: true,
-  canCreateFolderBefore: true,
-  canCreateFolderAfter: true,
-  canCreateChildren: true,
-  canSortChildren: true,
-};
 
 function demoTree(): chrome.bookmarks.BookmarkTreeNode[] {
   return [

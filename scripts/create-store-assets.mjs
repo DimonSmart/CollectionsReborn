@@ -17,7 +17,7 @@ try {
   await rm(tempScript, { force: true });
 }
 
-console.log('Created store logo and promotional assets.');
+console.log('Created store logo and 24-bit promotional PNG assets.');
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
@@ -43,7 +43,15 @@ $PromoDir = Join-Path $Root 'docs/store/assets/promo'
 Copy-Item -LiteralPath $IconPath -Destination (Join-Path $LogoDir 'logo-128.png') -Force
 
 function New-Bitmap([int]$Width, [int]$Height) {
-  $bitmap = New-Object System.Drawing.Bitmap $Width, $Height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  return New-BitmapWithPixelFormat $Width $Height ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+}
+
+function New-RgbBitmap([int]$Width, [int]$Height) {
+  return New-BitmapWithPixelFormat $Width $Height ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+}
+
+function New-BitmapWithPixelFormat([int]$Width, [int]$Height, [System.Drawing.Imaging.PixelFormat]$PixelFormat) {
+  $bitmap = New-Object System.Drawing.Bitmap $Width, $Height, $PixelFormat
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
   $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
@@ -114,7 +122,7 @@ function Save-Logo300 {
 
 function Save-SmallPromo {
   $icon = [System.Drawing.Image]::FromFile($IconPath)
-  $surface = New-Bitmap 440 280
+  $surface = New-RgbBitmap 440 280
   $g = $surface.Graphics
   $g.Clear([System.Drawing.ColorTranslator]::FromHtml('#F8FAFC'))
   Fill-RoundedRect $g '#EEF2FF' 24 34 128 128 18
@@ -131,7 +139,7 @@ function Save-SmallPromo {
 
 function Save-Marquee {
   $icon = [System.Drawing.Image]::FromFile($IconPath)
-  $surface = New-Bitmap 1400 560
+  $surface = New-RgbBitmap 1400 560
   $g = $surface.Graphics
   $g.Clear([System.Drawing.ColorTranslator]::FromHtml('#F8FAFC'))
   Fill-RoundedRect $g '#EEF2FF' 80 72 168 168 24
