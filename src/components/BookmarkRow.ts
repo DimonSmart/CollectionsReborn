@@ -32,7 +32,7 @@ export function createBookmarkRow(
   if (entry.type === 'folder') {
     li.tabIndex = 0;
     li.setAttribute('aria-label', `Open folder ${entry.title}, ${formatBookmarkCount(entry.childCount)}`);
-    li.append(handle, buildFolderIcon(), buildInfo(entry), buildFolderChevron(), menuBtn);
+    li.append(handle, buildFolderIcon(), buildInfo(entry), menuBtn);
   } else {
     li.append(handle, buildLinkPreview(entry), buildInfo(entry), menuBtn);
   }
@@ -126,14 +126,6 @@ function buildFolderIcon(): HTMLElement {
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = svgFolder();
   return icon;
-}
-
-function buildFolderChevron(): HTMLElement {
-  const chevron = document.createElement('span');
-  chevron.className = 'folder-chevron';
-  chevron.setAttribute('aria-hidden', 'true');
-  chevron.textContent = '›';
-  return chevron;
 }
 
 function buildInfo(entry: BookmarkEntryViewModel): HTMLElement {

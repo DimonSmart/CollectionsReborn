@@ -889,13 +889,6 @@ body {
   font-weight: 400;
 }
 
-.folder-chevron {
-  color: var(--text-secondary);
-  font-size: 28px;
-  font-weight: 300;
-  line-height: 1;
-}
-
 .bookmark-list[data-preview-size="small"] .bookmark-row--folder {
   min-height: 56px;
   margin: 4px 8px;
@@ -930,10 +923,6 @@ body {
 
 .bookmark-list[data-preview-size="small"] .bookmark-row--folder .row-meta--count {
   font-size: 10.5px;
-}
-
-.bookmark-list[data-preview-size="small"] .folder-chevron {
-  font-size: 24px;
 }
 
 .bookmark-list[data-preview-size="xlarge"] .bookmark-row--folder {
@@ -1289,6 +1278,24 @@ body {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.move-folder-tooltip {
+  position: fixed;
+  z-index: 1100;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }
 
 .move-folder-badge {

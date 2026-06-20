@@ -14,7 +14,20 @@ export function showMoveToDialog(
   }));
 
   return new Promise((resolve) => {
+    let pathTooltip: HTMLDivElement | null = null;
+    let tooltipTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const hidePathTooltip = () => {
+      if (tooltipTimer !== null) {
+        clearTimeout(tooltipTimer);
+        tooltipTimer = null;
+      }
+      if (pathTooltip) pathTooltip.hidden = true;
+    };
+
     const close = (result: MoveToResult | null) => {
+      hidePathTooltip();
+      pathTooltip?.remove();
       shell.close();
       resolve(result);
     };
@@ -40,9 +53,44 @@ export function showMoveToDialog(
     folderList.setAttribute('role', 'listbox');
     folderList.setAttribute('aria-label', 'Select destination folder');
 
+    pathTooltip = document.createElement('div');
+    pathTooltip.className = 'move-folder-tooltip';
+    pathTooltip.setAttribute('role', 'tooltip');
+    pathTooltip.hidden = true;
+    document.body.appendChild(pathTooltip);
+
+    const showPathTooltip = (row: HTMLElement, path: string) => {
+      hidePathTooltip();
+      tooltipTimer = setTimeout(() => {
+        if (!pathTooltip || !row.isConnected) return;
+
+        pathTooltip.textContent = path;
+        pathTooltip.hidden = false;
+
+        const rowRect = row.getBoundingClientRect();
+        const tooltipRect = pathTooltip.getBoundingClientRect();
+        const viewportPadding = 8;
+        const left = Math.min(
+          Math.max(rowRect.left, viewportPadding),
+          window.innerWidth - tooltipRect.width - viewportPadding,
+        );
+        const belowTop = rowRect.bottom + 6;
+        const top = belowTop + tooltipRect.height <= window.innerHeight - viewportPadding
+          ? belowTop
+          : rowRect.top - tooltipRect.height - 6;
+
+        pathTooltip.style.left = `${left}px`;
+        pathTooltip.style.top = `${Math.max(viewportPadding, top)}px`;
+        tooltipTimer = null;
+      }, 350);
+    };
+
+    folderList.addEventListener('scroll', hidePathTooltip);
+
     let selectedId: string | null = null;
 
     const renderList = (filter: string) => {
+      hidePathTooltip();
       folderList.innerHTML = '';
       const q = filter.trim().toLowerCase();
       const visible = q
@@ -54,11 +102,14 @@ export function showMoveToDialog(
         row.className = 'move-folder-row';
         row.setAttribute('role', 'option');
         row.dataset.id = choice.id;
+        row.setAttribute('aria-label', choice.path);
+        row.addEventListener('mouseenter', () => showPathTooltip(row, choice.path));
+        row.addEventListener('mouseleave', hidePathTooltip);
 
         if (choice.disabled) {
           row.classList.add('move-folder-row--disabled');
           row.setAttribute('aria-disabled', 'true');
-          row.title = 'This folder cannot accept items';
+          row.setAttribute('aria-label', `${choice.path}. This folder cannot accept items`);
         }
         if (choice.isCurrent) row.classList.add('move-folder-row--current');
         if (choice.id === selectedId) row.classList.add('move-folder-row--selected');
