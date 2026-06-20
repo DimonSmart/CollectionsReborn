@@ -9,6 +9,7 @@ import type { StorageService } from '../services/storageService.js';
 
 export class PreviewSettingsView {
   private settings: PreviewSettings | null = null;
+  private exampleObjectUrl = '';
 
   constructor(
     private readonly root: HTMLElement,
@@ -26,10 +27,15 @@ export class PreviewSettingsView {
 
   private async render(): Promise<void> {
     if (!this.settings) return;
-    const [stats, storedSettings] = await Promise.all([
+    this.revokeExampleObjectUrl();
+    const [stats, storedSettings, records] = await Promise.all([
       this.previewDb.getStorageStats(),
       this.storageService.loadSettings(),
+      this.previewDb.getAllPreviews(),
     ]);
+    const exampleRecord = records.find((record) => record.kind === 'link' && record.status === 'ok' && record.blob);
+    if (exampleRecord?.blob) this.exampleObjectUrl = URL.createObjectURL(exampleRecord.blob);
+    const size = PREVIEW_SIZE_OPTIONS[this.settings.previewSize];
     const importStatus = formatImportStatus(
       storedSettings.lastEdgeCollectionsImportResult,
       storedSettings.lastEdgeCollectionsImportAt,
@@ -51,7 +57,6 @@ export class PreviewSettingsView {
           <div class="settings-card__heading">
             <div>
               <h2>Previews</h2>
-              <p>Preview images are generated automatically when a bookmark is added or opened.</p>
             </div>
             <label class="settings-switch">
               <input type="checkbox" data-setting="enabled" ${this.settings.enabled ? 'checked' : ''} />
@@ -60,7 +65,7 @@ export class PreviewSettingsView {
           </div>
 
           <fieldset class="preview-size">
-            <legend>Preview size</legend>
+            <legend>Size</legend>
             <div class="preview-size__track">
               ${(Object.entries(PREVIEW_SIZE_OPTIONS) as Array<[PreviewSize, typeof PREVIEW_SIZE_OPTIONS[PreviewSize]]>)
                 .map(([key, option]) => `
@@ -72,6 +77,24 @@ export class PreviewSettingsView {
                 `).join('')}
             </div>
           </fieldset>
+
+          <div class="preview-example" aria-label="Preview size example">
+            <div class="bookmark-list preview-example__list" data-preview-size="${this.settings.previewSize}" style="--row-preview-width: ${size.width}px; --row-preview-height: ${size.height}px; --bookmark-row-min-height: ${size.rowHeight}px">
+              <div class="bookmark-row">
+                <span class="drag-handle" aria-hidden="true">${dragHandleIcon()}</span>
+                <span class="row-preview" aria-hidden="true">
+                ${this.exampleObjectUrl
+                  ? `<img src="${this.exampleObjectUrl}" alt="" />`
+                  : `<span class="preview-example__fallback">${imagePlaceholderIcon()}</span>`}
+                </span>
+                <span class="row-info">
+                  <span class="row-title">${escapeHtml(exampleRecord?.sourceTitle ?? 'Example bookmark')}</span>
+                  <span class="row-meta row-meta--domain">${escapeHtml(formatExampleAddress(exampleRecord?.sourceUrl))}</span>
+                </span>
+                <button class="action-btn row-menu-btn" type="button" tabindex="-1" aria-hidden="true">${menuIcon()}</button>
+              </div>
+            </div>
+          </div>
 
           <label class="settings-field">
             <span>Storage limit</span>
@@ -106,8 +129,14 @@ export class PreviewSettingsView {
   }
 
   private attachEvents(): void {
-    this.root.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', this.onClose);
-    this.root.querySelector<HTMLButtonElement>('[data-action="import"]')?.addEventListener('click', this.onImport);
+    this.root.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => {
+      this.revokeExampleObjectUrl();
+      this.onClose();
+    });
+    this.root.querySelector<HTMLButtonElement>('[data-action="import"]')?.addEventListener('click', () => {
+      this.revokeExampleObjectUrl();
+      this.onImport();
+    });
     this.root.querySelectorAll<HTMLInputElement>('[data-setting]').forEach((input) => {
       input.addEventListener('change', () => void this.updateSetting(input));
     });
@@ -123,6 +152,11 @@ export class PreviewSettingsView {
         : input.value;
     this.settings = await this.settingsService.patch({ [key]: value } as Partial<PreviewSettings>);
     await this.render();
+  }
+
+  private revokeExampleObjectUrl(): void {
+    if (this.exampleObjectUrl) URL.revokeObjectURL(this.exampleObjectUrl);
+    this.exampleObjectUrl = '';
   }
 }
 
@@ -144,10 +178,31 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
+function formatExampleAddress(url: string | undefined): string {
+  if (!url) return 'example.com';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '') || url;
+  } catch {
+    return url;
+  }
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function backIcon(): string {
   return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+}
+
+function dragHandleIcon(): string {
+  return '<svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/><circle cx="3" cy="9" r="1.2"/><circle cx="9" cy="9" r="1.2"/><circle cx="3" cy="15" r="1.2"/><circle cx="9" cy="15" r="1.2"/></svg>';
+}
+
+function imagePlaceholderIcon(): string {
+  return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m4 17 5-5 4 4 2-2 5 4"/></svg>';
+}
+
+function menuIcon(): string {
+  return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
 }
