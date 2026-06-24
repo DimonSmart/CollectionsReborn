@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Collections Reborn",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A collections-style side panel for organizing browser bookmarks.",
   "minimum_chrome_version": "114",
   "permissions": [
