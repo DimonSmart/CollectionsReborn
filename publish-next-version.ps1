@@ -171,7 +171,6 @@ function Test-JsonProperty {
     param(
         [Parameter(Mandatory = $true)]
         [object] $Object,
-        [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
         [string] $Name
     )
@@ -187,7 +186,6 @@ function Get-JsonPropertyValue {
     param(
         [Parameter(Mandatory = $true)]
         [object] $Object,
-        [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
         [string] $Name
     )
@@ -210,7 +208,6 @@ function Set-JsonPropertyValue {
     param(
         [Parameter(Mandatory = $true)]
         [object] $Object,
-        [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
         [string] $Name,
         [Parameter(Mandatory = $true)]
@@ -367,5 +364,8 @@ try {
         [Console]::Error.WriteLine("Publishing failed after version files were modified. Review or revert package.json, manifest.json, and package-lock.json manually.")
     }
     [Console]::Error.WriteLine($_.Exception.Message)
+    if ($_.ScriptStackTrace) {
+        [Console]::Error.WriteLine($_.ScriptStackTrace)
+    }
     exit 1
 }
