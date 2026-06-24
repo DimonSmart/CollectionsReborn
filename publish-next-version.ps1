@@ -49,6 +49,23 @@ function Invoke-Tool {
     }
 }
 
+function Invoke-NodeScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Script,
+        [string[]] $Arguments = @()
+    )
+
+    $scriptPath = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), ".cjs")
+    try {
+        [System.IO.File]::WriteAllText($scriptPath, $Script, [System.Text.UTF8Encoding]::new($false))
+        $nodeArguments = @($scriptPath) + $Arguments
+        Invoke-Tool -Command "node" -Arguments $nodeArguments
+    } finally {
+        Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Assert-CleanWorkingTree {
     param([string] $Context)
 
@@ -107,125 +124,6 @@ function Get-NextVersion {
     }
 }
 
-function Read-JsonFile {
-    param([Parameter(Mandatory = $true)][string] $Path)
-    $content = Get-Content -LiteralPath $Path -Raw
-    try {
-        return $content | ConvertFrom-Json
-    } catch {
-        $convertFromJson = Get-Command ConvertFrom-Json
-        if ($convertFromJson.Parameters.ContainsKey("AsHashtable")) {
-            return $content | ConvertFrom-Json -AsHashtable
-        }
-        throw
-    }
-}
-
-function Write-JsonFile {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Path,
-        [Parameter(Mandatory = $true)]
-        [object] $Json
-    )
-
-    $content = $Json | ConvertTo-Json -Depth 100
-    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
-    [System.IO.File]::WriteAllText($resolvedPath, "$content`n", [System.Text.UTF8Encoding]::new($false))
-}
-
-function Get-RequiredJsonProperty {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object] $Object,
-        [Parameter(Mandatory = $true)]
-        [string] $Name,
-        [Parameter(Mandatory = $true)]
-        [string] $Path
-    )
-
-    $property = $Object.PSObject.Properties[$Name]
-    if ($null -eq $property) {
-        throw "$Path must contain '$Name'."
-    }
-    return $property
-}
-
-function Set-RequiredJsonProperty {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object] $Object,
-        [Parameter(Mandatory = $true)]
-        [string] $Name,
-        [Parameter(Mandatory = $true)]
-        [string] $Value,
-        [Parameter(Mandatory = $true)]
-        [string] $Path
-    )
-
-    $property = Get-RequiredJsonProperty -Object $Object -Name $Name -Path $Path
-    $property.Value = $Value
-}
-
-function Test-JsonProperty {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object] $Object,
-        [AllowEmptyString()]
-        [string] $Name
-    )
-
-    if ($Object -is [System.Collections.IDictionary]) {
-        return $Object.Contains($Name)
-    }
-
-    return $null -ne $Object.PSObject.Properties[$Name]
-}
-
-function Get-JsonPropertyValue {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object] $Object,
-        [AllowEmptyString()]
-        [string] $Name
-    )
-
-    if ($Object -is [System.Collections.IDictionary]) {
-        if ($Object.Contains($Name)) {
-            return $Object[$Name]
-        }
-        return $null
-    }
-
-    $property = $Object.PSObject.Properties | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
-    if ($null -eq $property) {
-        return $null
-    }
-    return $property.Value
-}
-
-function Set-JsonPropertyValue {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object] $Object,
-        [AllowEmptyString()]
-        [string] $Name,
-        [Parameter(Mandatory = $true)]
-        [string] $Value
-    )
-
-    if ($Object -is [System.Collections.IDictionary]) {
-        $Object[$Name] = $Value
-        return
-    }
-
-    $property = $Object.PSObject.Properties | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
-    if ($null -eq $property) {
-        throw "JSON property '$Name' does not exist."
-    }
-    $property.Value = $Value
-}
-
 function Test-GitTagExists {
     param([Parameter(Mandatory = $true)][string] $TagName)
 
@@ -242,31 +140,52 @@ function Test-GitTagExists {
 function Update-VersionFiles {
     param([Parameter(Mandatory = $true)][string] $Version)
 
-    $packageJson = Read-JsonFile -Path "package.json"
-    $manifestJson = Read-JsonFile -Path "manifest.json"
+    Invoke-NodeScript -Arguments @($Version) -Script @'
+const fs = require('node:fs');
 
-    Set-RequiredJsonProperty -Object $packageJson -Name "version" -Value $Version -Path "package.json"
-    Set-RequiredJsonProperty -Object $manifestJson -Name "version" -Value $Version -Path "manifest.json"
+const version = process.argv[2];
 
-    Write-JsonFile -Path "package.json" -Json $packageJson
-    Write-JsonFile -Path "manifest.json" -Json $manifestJson
+function readJson(path) {
+  return JSON.parse(fs.readFileSync(path, 'utf8'));
+}
 
-    if (Test-Path -LiteralPath "package-lock.json") {
-        $packageLockJson = Read-JsonFile -Path "package-lock.json"
-        if (Test-JsonProperty -Object $packageLockJson -Name "version") {
-            Set-JsonPropertyValue -Object $packageLockJson -Name "version" -Value $Version
-        }
+function writeJson(path, value) {
+  fs.writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
 
-        if (Test-JsonProperty -Object $packageLockJson -Name "packages") {
-            $packages = Get-JsonPropertyValue -Object $packageLockJson -Name "packages"
-            $rootPackage = Get-JsonPropertyValue -Object $packages -Name ""
-            if ($null -ne $rootPackage -and (Test-JsonProperty -Object $rootPackage -Name "version")) {
-                Set-JsonPropertyValue -Object $rootPackage -Name "version" -Value $Version
-            }
-        }
+function requireProperty(value, property, path) {
+  if (!Object.prototype.hasOwnProperty.call(value, property)) {
+    throw new Error(`${path} must contain '${property}'.`);
+  }
+}
 
-        Write-JsonFile -Path "package-lock.json" -Json $packageLockJson
-    }
+const packageJson = readJson('package.json');
+const manifestJson = readJson('manifest.json');
+
+requireProperty(packageJson, 'version', 'package.json');
+requireProperty(manifestJson, 'version', 'manifest.json');
+
+packageJson.version = version;
+manifestJson.version = version;
+
+writeJson('package.json', packageJson);
+writeJson('manifest.json', manifestJson);
+
+if (fs.existsSync('package-lock.json')) {
+  const packageLockJson = readJson('package-lock.json');
+
+  if (Object.prototype.hasOwnProperty.call(packageLockJson, 'version')) {
+    packageLockJson.version = version;
+  }
+
+  const rootPackage = packageLockJson.packages?.[''];
+  if (rootPackage && Object.prototype.hasOwnProperty.call(rootPackage, 'version')) {
+    rootPackage.version = version;
+  }
+
+  writeJson('package-lock.json', packageLockJson);
+}
+'@
 
     $script:VersionFilesModified = $true
 }
@@ -274,30 +193,40 @@ function Update-VersionFiles {
 function Assert-VersionFiles {
     param([Parameter(Mandatory = $true)][string] $Version)
 
-    $packageJson = Read-JsonFile -Path "package.json"
-    $manifestJson = Read-JsonFile -Path "manifest.json"
+    Invoke-NodeScript -Arguments @($Version) -Script @'
+const fs = require('node:fs');
 
-    if ((Get-RequiredJsonProperty -Object $packageJson -Name "version" -Path "package.json").Value -ne $Version) {
-        throw "package.json version does not equal $Version."
-    }
-    if ((Get-RequiredJsonProperty -Object $manifestJson -Name "version" -Path "manifest.json").Value -ne $Version) {
-        throw "manifest.json version does not equal $Version."
-    }
+const version = process.argv[2];
 
-    if (Test-Path -LiteralPath "package-lock.json") {
-        $packageLockJson = Read-JsonFile -Path "package-lock.json"
-        if ((Test-JsonProperty -Object $packageLockJson -Name "version") -and (Get-JsonPropertyValue -Object $packageLockJson -Name "version") -ne $Version) {
-            throw "package-lock.json top-level version does not equal $Version."
-        }
+function readJson(path) {
+  return JSON.parse(fs.readFileSync(path, 'utf8'));
+}
 
-        if (Test-JsonProperty -Object $packageLockJson -Name "packages") {
-            $packages = Get-JsonPropertyValue -Object $packageLockJson -Name "packages"
-            $rootPackage = Get-JsonPropertyValue -Object $packages -Name ""
-            if (($null -ne $rootPackage) -and (Test-JsonProperty -Object $rootPackage -Name "version") -and (Get-JsonPropertyValue -Object $rootPackage -Name "version") -ne $Version) {
-                throw "package-lock.json packages[''].version does not equal $Version."
-            }
-        }
-    }
+function requireVersion(path, actual) {
+  if (actual !== version) {
+    throw new Error(`${path} version does not equal ${version}.`);
+  }
+}
+
+const packageJson = readJson('package.json');
+const manifestJson = readJson('manifest.json');
+
+requireVersion('package.json', packageJson.version);
+requireVersion('manifest.json', manifestJson.version);
+
+if (fs.existsSync('package-lock.json')) {
+  const packageLockJson = readJson('package-lock.json');
+
+  if (Object.prototype.hasOwnProperty.call(packageLockJson, 'version')) {
+    requireVersion('package-lock.json top-level', packageLockJson.version);
+  }
+
+  const rootPackage = packageLockJson.packages?.[''];
+  if (rootPackage && Object.prototype.hasOwnProperty.call(rootPackage, 'version')) {
+    requireVersion("package-lock.json packages['']", rootPackage.version);
+  }
+}
+'@
 }
 
 try {
