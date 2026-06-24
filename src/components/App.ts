@@ -36,6 +36,7 @@ import {
   filterEntries,
   searchBookmarkTree,
   collectAllFolders,
+  isDescendantOf,
 } from '../domain/bookmarkTree.js';
 import { getFolderPreviewKey, getLinkPreviewKey } from '../domain/previewKeys.js';
 import { PREVIEW_CAPTURE_PERMISSION_ORIGINS } from '../domain/previewPermissions.js';
@@ -390,6 +391,7 @@ export class App {
   }
 
   private async moveItemIntoFolder(itemId: string, folderId: string): Promise<void> {
+    if (itemId === folderId || isDescendantOf(this.bookmarkTree, folderId, itemId)) return;
     if (!(await this.requireCapability(itemId, 'canMove', 'This item cannot be moved.'))) return;
     if (!(await this.requireCapability(folderId, 'canCreateChildren', 'The destination folder is read-only.'))) return;
     try {

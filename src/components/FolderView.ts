@@ -11,6 +11,7 @@ export interface FolderInfo {
 let activeSortable: Sortable | null = null;
 
 export type FolderDragIntent = 'move-into-folder' | 'reorder-before' | 'reorder-after' | 'block';
+export type FolderDragApproach = 'from-above' | 'from-below' | 'unknown';
 
 const FOLDER_DROP_CENTER_ZONE_START = 0.25;
 const FOLDER_DROP_CENTER_ZONE_END = 0.75;
@@ -49,6 +50,9 @@ export function createFolderView(
     return el;
   }
 
+  const initialIndexById = new Map<string, number>();
+  entries.forEach((entry, index) => initialIndexById.set(entry.id, index));
+
   const list = document.createElement('ul');
   list.className = 'bookmark-list';
   list.setAttribute('role', 'list');
@@ -69,6 +73,7 @@ export function createFolderView(
     let pendingFolderDropTarget: HTMLElement | null = null;
     let folderDropTargetTimer: ReturnType<typeof setTimeout> | null = null;
     let draggedElement: HTMLElement | null = null;
+    let draggedInitialIndex: number | null = null;
     let lastFolderDropCandidate: HTMLElement | null = null;
     let lastPointerPosition: { x: number; y: number } | null = null;
     let lastMoveStateKey = '';
@@ -133,6 +138,12 @@ export function createFolderView(
       }, FOLDER_DROP_HOVER_DELAY_MS);
     };
 
+    const getApproachForTarget = (target: HTMLElement): FolderDragApproach => {
+      const targetId = target.dataset.id;
+      const targetInitialIndex = targetId ? initialIndexById.get(targetId) ?? null : null;
+      return getFolderDragApproach(draggedInitialIndex, targetInitialIndex);
+    };
+
     const updateFolderDropTargetFromDocumentPoint = (event: Event): void => {
       const pointer = getPointerClientPosition(event);
       lastPointerPosition = pointer;
@@ -150,17 +161,18 @@ export function createFolderView(
         && list.contains(target)
         && target.dataset.acceptsChildren === 'true'
         && target !== draggedElement;
+      const approach = target ? getApproachForTarget(target) : 'unknown';
       const intent = isInsideTargetRow
-        ? getFolderDragIntentFromRect(pointer.y, target.getBoundingClientRect())
+        ? getDirectionalFolderDragIntentFromRect(pointer.y, target.getBoundingClientRect(), approach)
         : 'block';
       const isFolderTarget = intent === 'move-into-folder';
       lastFolderDropCandidate = isFolderTarget ? target : null;
-      const isSameScheduledTarget = target === pendingFolderDropTarget || target === folderDropTarget;
 
       const stateKey = [
         Math.round(pointer.x),
         Math.round(pointer.y),
         getElementDebugId(target),
+        approach,
         intent,
       ].join('|');
       if (stateKey !== lastDocumentStateKey) {
@@ -170,13 +182,13 @@ export function createFolderView(
           target: getElementDebugId(target),
           isFolderTarget,
           isInsideTargetRow,
-          isSameScheduledTarget,
+          approach,
           intent,
         });
       }
 
       scheduleFolderDropTarget(
-        isFolderTarget || (isInsideTargetRow && isSameScheduledTarget && intent === 'block') ? target : null,
+        isFolderTarget ? target : null,
         'document-point-outside-folder',
       );
     };
@@ -192,9 +204,10 @@ export function createFolderView(
           return null;
         }
 
-        const candidateIntent = getFolderDragIntentFromRect(
+        const candidateIntent = getDirectionalFolderDragIntentFromRect(
           pointer.y,
           lastFolderDropCandidate.getBoundingClientRect(),
+          getApproachForTarget(lastFolderDropCandidate),
         );
         return candidateIntent === 'move-into-folder' ? lastFolderDropCandidate : null;
       };
@@ -210,7 +223,11 @@ export function createFolderView(
         return getCurrentCandidate();
       }
 
-      const intent = getFolderDragIntentFromRect(pointer.y, target.getBoundingClientRect());
+      const intent = getDirectionalFolderDragIntentFromRect(
+        pointer.y,
+        target.getBoundingClientRect(),
+        getApproachForTarget(target),
+      );
       if (intent === 'move-into-folder') return target;
       return getCurrentCandidate();
     };
@@ -242,12 +259,15 @@ export function createFolderView(
       },
       onStart(evt) {
         draggedElement = evt.item as HTMLElement;
+        const draggedId = draggedElement.dataset.id;
+        draggedInitialIndex = draggedId ? initialIndexById.get(draggedId) ?? null : null;
         lastFolderDropCandidate = null;
         lastPointerPosition = null;
         lastMoveStateKey = '';
         lastDocumentStateKey = '';
         logDnd('drag-start', {
           item: getElementDebugId(draggedElement),
+          draggedInitialIndex,
           previewSize,
         });
         addDocumentDragListeners();
@@ -262,17 +282,19 @@ export function createFolderView(
           && related.dataset.acceptsChildren === 'true'
           && related !== dragged
           && pointerY !== null;
+        const relatedId = related.dataset.id;
+        const relatedInitialIndex = relatedId ? initialIndexById.get(relatedId) ?? null : null;
+        const approach = getFolderDragApproach(draggedInitialIndex, relatedInitialIndex);
         const intent = isInsideRelatedRow
-          ? getFolderDragIntent(pointerY, evt.relatedRect.top, evt.relatedRect.height)
+          ? getDirectionalFolderDragIntent(pointerY, evt.relatedRect.top, evt.relatedRect.height, approach)
           : 'block';
         const isFolderTarget = intent === 'move-into-folder';
-        lastFolderDropCandidate = isFolderTarget ? related : null;
-        const isSameScheduledTarget = related === pendingFolderDropTarget || related === folderDropTarget;
 
         const moveStateKey = [
           getElementDebugId(dragged),
           getElementDebugId(related),
           String(pointerY === null ? null : Math.round(pointerY)),
+          approach,
           intent,
           getElementDebugId(pendingFolderDropTarget),
           getElementDebugId(folderDropTarget),
@@ -289,19 +311,33 @@ export function createFolderView(
             },
             isFolderTarget,
             isInsideRelatedRow,
-            isSameScheduledTarget,
+            approach,
             intent,
             pending: getElementDebugId(pendingFolderDropTarget),
             active: getElementDebugId(folderDropTarget),
           });
         }
 
-        scheduleFolderDropTarget(
-          isFolderTarget || (isInsideRelatedRow && isSameScheduledTarget && intent === 'block') ? related : null,
-          'sortable-move-outside-folder',
-        );
-        if (isInsideRelatedRow && intent === 'block') return false;
-        if (isFolderTarget) return false;
+        if (isInsideRelatedRow) {
+          if (intent === 'move-into-folder') {
+            lastFolderDropCandidate = related;
+            scheduleFolderDropTarget(related, 'folder-center');
+            return false;
+          }
+
+          if (intent === 'block') {
+            lastFolderDropCandidate = null;
+            scheduleFolderDropTarget(null, 'folder-block-zone');
+            return false;
+          }
+
+          lastFolderDropCandidate = null;
+          clearFolderDropState('folder-far-edge-reorder');
+          return canReorder ? undefined : false;
+        }
+
+        lastFolderDropCandidate = null;
+        scheduleFolderDropTarget(null, 'sortable-move-outside-folder');
         return canReorder ? undefined : false;
       },
       onEnd(evt) {
@@ -319,6 +355,7 @@ export function createFolderView(
           endPointer,
         });
         draggedElement = null;
+        draggedInitialIndex = null;
         lastFolderDropCandidate = null;
         lastPointerPosition = null;
         clearFolderDropState('drag-end');
@@ -363,26 +400,56 @@ function logDnd(event: string, details: Record<string, unknown>): void {
   console.debug('[CollectionsReborn:DnD]', record);
 }
 
-export function getFolderDragIntent(pointerY: number, top: number, height: number): FolderDragIntent {
+export function getFolderDragApproach(
+  draggedInitialIndex: number | null,
+  relatedInitialIndex: number | null,
+): FolderDragApproach {
+  if (draggedInitialIndex === null || relatedInitialIndex === null) return 'unknown';
+  if (draggedInitialIndex > relatedInitialIndex) return 'from-below';
+  if (draggedInitialIndex < relatedInitialIndex) return 'from-above';
+  return 'unknown';
+}
+
+export function getDirectionalFolderDragIntent(
+  pointerY: number,
+  top: number,
+  height: number,
+  approach: FolderDragApproach,
+): FolderDragIntent {
   if (!Number.isFinite(pointerY) || !Number.isFinite(top) || !Number.isFinite(height) || height <= 0) {
     return 'block';
   }
 
   const position = (pointerY - top) / height;
-  if (position < FOLDER_REORDER_BEFORE_ZONE_END) return 'reorder-before';
-  if (position > FOLDER_REORDER_AFTER_ZONE_START) return 'reorder-after';
   if (position >= FOLDER_DROP_CENTER_ZONE_START && position <= FOLDER_DROP_CENTER_ZONE_END) {
     return 'move-into-folder';
   }
+
+  if (approach === 'from-below') {
+    return position < FOLDER_REORDER_BEFORE_ZONE_END ? 'reorder-before' : 'block';
+  }
+
+  if (approach === 'from-above') {
+    return position > FOLDER_REORDER_AFTER_ZONE_START ? 'reorder-after' : 'block';
+  }
+
   return 'block';
 }
 
-export function isInsideFolderDropZone(pointerY: number, top: number, height: number): boolean {
-  return getFolderDragIntent(pointerY, top, height) === 'move-into-folder';
+export function getFolderDragIntent(pointerY: number, top: number, height: number): FolderDragIntent {
+  return getDirectionalFolderDragIntent(pointerY, top, height, 'unknown');
 }
 
-function getFolderDragIntentFromRect(pointerY: number, rect: Pick<DOMRect, 'top' | 'height'>): FolderDragIntent {
-  return getFolderDragIntent(pointerY, rect.top, rect.height);
+export function isInsideFolderDropZone(pointerY: number, top: number, height: number): boolean {
+  return getDirectionalFolderDragIntent(pointerY, top, height, 'unknown') === 'move-into-folder';
+}
+
+function getDirectionalFolderDragIntentFromRect(
+  pointerY: number,
+  rect: Pick<DOMRect, 'top' | 'height'>,
+  approach: FolderDragApproach,
+): FolderDragIntent {
+  return getDirectionalFolderDragIntent(pointerY, rect.top, rect.height, approach);
 }
 
 function getPointerClientPosition(event: Event): { x: number; y: number } | null {

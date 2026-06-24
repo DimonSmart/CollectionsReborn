@@ -1,42 +1,65 @@
 import { describe, expect, it } from 'vitest';
-import { getFolderDragIntent, isInsideFolderDropZone } from './FolderView.js';
+import {
+  getDirectionalFolderDragIntent,
+  getFolderDragApproach,
+  isInsideFolderDropZone,
+} from './FolderView.js';
 import { PREVIEW_SIZE_OPTIONS } from '../services/previewSettingsService.js';
 
-describe('getFolderDragIntent', () => {
-  it('uses the center of a folder row for moving into the folder', () => {
-    expect(getFolderDragIntent(125, 100, 100)).toBe('move-into-folder');
-    expect(getFolderDragIntent(150, 100, 100)).toBe('move-into-folder');
-    expect(getFolderDragIntent(175, 100, 100)).toBe('move-into-folder');
+describe('getDirectionalFolderDragIntent', () => {
+  it('blocks the near edge and allows the far edge when dragging from below', () => {
+    expect(getDirectionalFolderDragIntent(183, 100, 100, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(150, 100, 100, 'from-below')).toBe('move-into-folder');
+    expect(getDirectionalFolderDragIntent(117, 100, 100, 'from-below')).toBe('reorder-before');
   });
 
-  it('uses the top and bottom edge zones for explicit reordering', () => {
-    expect(getFolderDragIntent(117.9, 100, 100)).toBe('reorder-before');
-    expect(getFolderDragIntent(182.1, 100, 100)).toBe('reorder-after');
+  it('blocks the near edge and allows the far edge when dragging from above', () => {
+    expect(getDirectionalFolderDragIntent(117, 100, 100, 'from-above')).toBe('block');
+    expect(getDirectionalFolderDragIntent(150, 100, 100, 'from-above')).toBe('move-into-folder');
+    expect(getDirectionalFolderDragIntent(183, 100, 100, 'from-above')).toBe('reorder-after');
+  });
+
+  it('allows center recovery but blocks edge reorder for unknown approach', () => {
+    expect(getDirectionalFolderDragIntent(117, 100, 100, 'unknown')).toBe('block');
+    expect(getDirectionalFolderDragIntent(150, 100, 100, 'unknown')).toBe('move-into-folder');
+    expect(getDirectionalFolderDragIntent(183, 100, 100, 'unknown')).toBe('block');
   });
 
   it('blocks buffer zones between reorder edges and the folder center', () => {
-    expect(getFolderDragIntent(118, 100, 100)).toBe('block');
-    expect(getFolderDragIntent(124.9, 100, 100)).toBe('block');
-    expect(getFolderDragIntent(175.1, 100, 100)).toBe('block');
-    expect(getFolderDragIntent(182, 100, 100)).toBe('block');
+    expect(getDirectionalFolderDragIntent(118, 100, 100, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(124.9, 100, 100, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(175.1, 100, 100, 'from-above')).toBe('block');
+    expect(getDirectionalFolderDragIntent(182, 100, 100, 'from-above')).toBe('block');
   });
 
   it('rejects an invalid row rectangle', () => {
-    expect(getFolderDragIntent(100, 100, 0)).toBe('block');
-    expect(getFolderDragIntent(100, 100, -1)).toBe('block');
-    expect(getFolderDragIntent(Number.NaN, 100, 100)).toBe('block');
-    expect(getFolderDragIntent(100, Number.NaN, 100)).toBe('block');
-    expect(getFolderDragIntent(100, 100, Number.NaN)).toBe('block');
+    expect(getDirectionalFolderDragIntent(100, 100, 0, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(100, 100, -1, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(Number.NaN, 100, 100, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(100, Number.NaN, 100, 'from-below')).toBe('block');
+    expect(getDirectionalFolderDragIntent(100, 100, Number.NaN, 'from-below')).toBe('block');
   });
 
   it('uses the same relative intent zones for every preview size', () => {
     for (const option of Object.values(PREVIEW_SIZE_OPTIONS)) {
-      expect(getFolderDragIntent(option.rowHeight * 0.17, 0, option.rowHeight)).toBe('reorder-before');
-      expect(getFolderDragIntent(option.rowHeight * 0.2, 0, option.rowHeight)).toBe('block');
-      expect(getFolderDragIntent(option.rowHeight * 0.5, 0, option.rowHeight)).toBe('move-into-folder');
-      expect(getFolderDragIntent(option.rowHeight * 0.8, 0, option.rowHeight)).toBe('block');
-      expect(getFolderDragIntent(option.rowHeight * 0.83, 0, option.rowHeight)).toBe('reorder-after');
+      expect(getDirectionalFolderDragIntent(option.rowHeight * 0.83, 0, option.rowHeight, 'from-below')).toBe('block');
+      expect(getDirectionalFolderDragIntent(option.rowHeight * 0.5, 0, option.rowHeight, 'from-below')).toBe('move-into-folder');
+      expect(getDirectionalFolderDragIntent(option.rowHeight * 0.17, 0, option.rowHeight, 'from-below')).toBe('reorder-before');
+
+      expect(getDirectionalFolderDragIntent(option.rowHeight * 0.17, 0, option.rowHeight, 'from-above')).toBe('block');
+      expect(getDirectionalFolderDragIntent(option.rowHeight * 0.5, 0, option.rowHeight, 'from-above')).toBe('move-into-folder');
+      expect(getDirectionalFolderDragIntent(option.rowHeight * 0.83, 0, option.rowHeight, 'from-above')).toBe('reorder-after');
     }
+  });
+});
+
+describe('getFolderDragApproach', () => {
+  it('uses original indexes to detect the drag approach direction', () => {
+    expect(getFolderDragApproach(5, 2)).toBe('from-below');
+    expect(getFolderDragApproach(2, 5)).toBe('from-above');
+    expect(getFolderDragApproach(null, 5)).toBe('unknown');
+    expect(getFolderDragApproach(2, null)).toBe('unknown');
+    expect(getFolderDragApproach(3, 3)).toBe('unknown');
   });
 });
 
