@@ -105,13 +105,28 @@ See:
 - `docs/store/PUBLISHING_CHECKLIST.md`
 - `PRIVACY.md`
 
-To create a production package:
+To publish the next version from a clean `main` branch:
+
+```bash
+publish-next-version.bat
+```
+
+The command bumps `package.json`, `manifest.json`, and `package-lock.json` when applicable, runs the release checks, commits the version change, creates an annotated version tag, and pushes `main` plus the tag.
+
+Use a larger version bump when needed:
+
+```bash
+publish-next-version.bat -Bump minor
+publish-next-version.bat -Bump major
+```
+
+To create a production package manually without publishing:
 
 ```bash
 npm run package
 ```
 
-The package is generated in `release/`.
+The local package is generated in `release/` as `collections-reborn-X.Y.Z.zip`. Release zips are ignored by git and must not be committed.
 
 ## Public Pages
 
@@ -125,7 +140,7 @@ https://github.com/DimonSmart/CollectionsReborn/issues
 
 ## Release package
 
-Run locally:
+Run locally without publishing:
 
 ```bash
 npm run package
@@ -133,14 +148,15 @@ npm run package
 
 CI also builds the release zip and uploads it as a workflow artifact.
 
-To create a GitHub Release:
+To create a GitHub Release, prefer the local publisher:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+publish-next-version.bat
 ```
 
-The release workflow creates a GitHub Release and attaches the extension zip from `release/`.
+The release workflow runs when the pushed tag matches `v*`. It creates a GitHub Release and attaches the versioned extension zip from `release/`.
+
+The official downloadable archive is the zip attached to the GitHub Release. Chrome Web Store and Microsoft Edge Add-ons are still updated manually from that archive.
 
 ---
 
