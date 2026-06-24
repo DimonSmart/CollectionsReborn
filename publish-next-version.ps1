@@ -109,7 +109,16 @@ function Get-NextVersion {
 
 function Read-JsonFile {
     param([Parameter(Mandatory = $true)][string] $Path)
-    return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    $content = Get-Content -LiteralPath $Path -Raw
+    try {
+        return $content | ConvertFrom-Json
+    } catch {
+        $convertFromJson = Get-Command ConvertFrom-Json
+        if ($convertFromJson.Parameters.ContainsKey("AsHashtable")) {
+            return $content | ConvertFrom-Json -AsHashtable
+        }
+        throw
+    }
 }
 
 function Write-JsonFile {
@@ -163,10 +172,61 @@ function Test-JsonProperty {
         [Parameter(Mandatory = $true)]
         [object] $Object,
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string] $Name
     )
 
+    if ($Object -is [System.Collections.IDictionary]) {
+        return $Object.Contains($Name)
+    }
+
     return $null -ne $Object.PSObject.Properties[$Name]
+}
+
+function Get-JsonPropertyValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object] $Object,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string] $Name
+    )
+
+    if ($Object -is [System.Collections.IDictionary]) {
+        if ($Object.Contains($Name)) {
+            return $Object[$Name]
+        }
+        return $null
+    }
+
+    $property = $Object.PSObject.Properties | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+    if ($null -eq $property) {
+        return $null
+    }
+    return $property.Value
+}
+
+function Set-JsonPropertyValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object] $Object,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [string] $Value
+    )
+
+    if ($Object -is [System.Collections.IDictionary]) {
+        $Object[$Name] = $Value
+        return
+    }
+
+    $property = $Object.PSObject.Properties | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+    if ($null -eq $property) {
+        throw "JSON property '$Name' does not exist."
+    }
+    $property.Value = $Value
 }
 
 function Test-GitTagExists {
@@ -197,13 +257,14 @@ function Update-VersionFiles {
     if (Test-Path -LiteralPath "package-lock.json") {
         $packageLockJson = Read-JsonFile -Path "package-lock.json"
         if (Test-JsonProperty -Object $packageLockJson -Name "version") {
-            $packageLockJson.PSObject.Properties["version"].Value = $Version
+            Set-JsonPropertyValue -Object $packageLockJson -Name "version" -Value $Version
         }
 
         if (Test-JsonProperty -Object $packageLockJson -Name "packages") {
-            $rootPackageProperty = $packageLockJson.packages.PSObject.Properties[""]
-            if ($null -ne $rootPackageProperty -and (Test-JsonProperty -Object $rootPackageProperty.Value -Name "version")) {
-                $rootPackageProperty.Value.PSObject.Properties["version"].Value = $Version
+            $packages = Get-JsonPropertyValue -Object $packageLockJson -Name "packages"
+            $rootPackage = Get-JsonPropertyValue -Object $packages -Name ""
+            if ($null -ne $rootPackage -and (Test-JsonProperty -Object $rootPackage -Name "version")) {
+                Set-JsonPropertyValue -Object $rootPackage -Name "version" -Value $Version
             }
         }
 
@@ -228,13 +289,14 @@ function Assert-VersionFiles {
 
     if (Test-Path -LiteralPath "package-lock.json") {
         $packageLockJson = Read-JsonFile -Path "package-lock.json"
-        if ((Test-JsonProperty -Object $packageLockJson -Name "version") -and $packageLockJson.PSObject.Properties["version"].Value -ne $Version) {
+        if ((Test-JsonProperty -Object $packageLockJson -Name "version") -and (Get-JsonPropertyValue -Object $packageLockJson -Name "version") -ne $Version) {
             throw "package-lock.json top-level version does not equal $Version."
         }
 
         if (Test-JsonProperty -Object $packageLockJson -Name "packages") {
-            $rootPackageProperty = $packageLockJson.packages.PSObject.Properties[""]
-            if (($null -ne $rootPackageProperty) -and (Test-JsonProperty -Object $rootPackageProperty.Value -Name "version") -and $rootPackageProperty.Value.PSObject.Properties["version"].Value -ne $Version) {
+            $packages = Get-JsonPropertyValue -Object $packageLockJson -Name "packages"
+            $rootPackage = Get-JsonPropertyValue -Object $packages -Name ""
+            if (($null -ne $rootPackage) -and (Test-JsonProperty -Object $rootPackage -Name "version") -and (Get-JsonPropertyValue -Object $rootPackage -Name "version") -ne $Version) {
                 throw "package-lock.json packages[''].version does not equal $Version."
             }
         }
