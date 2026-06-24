@@ -254,6 +254,13 @@ try {
     Update-VersionFiles -Version $nextVersion
     Assert-VersionFiles -Version $nextVersion
 
+    Invoke-Git -Arguments @("add", "--", "package.json", "manifest.json", "package-lock.json")
+
+    $stagedFiles = @(Invoke-Git -Arguments @("diff", "--cached", "--name-only", "--", "package.json", "manifest.json", "package-lock.json") -CaptureOutput)
+    if ($stagedFiles.Count -eq 0) {
+        throw "No version file changes found for $tagName. Existing files may already be at $nextVersion; create the baseline tag manually or pass -FirstVersion with a higher version."
+    }
+
     if ($SkipTests) {
         Invoke-Tool -Command "npm" -Arguments @("ci")
         Invoke-Tool -Command "npm" -Arguments @("run", "check")
@@ -271,13 +278,6 @@ try {
 
     if (Test-GitTagExists -TagName $tagName) {
         throw "Tag already exists: $tagName"
-    }
-
-    Invoke-Git -Arguments @("add", "--", "package.json", "manifest.json", "package-lock.json")
-
-    $stagedFiles = @(Invoke-Git -Arguments @("diff", "--cached", "--name-only", "--", "package.json", "manifest.json", "package-lock.json") -CaptureOutput)
-    if ($stagedFiles.Count -eq 0) {
-        throw "No staged version changes found."
     }
 
     Invoke-Git -Arguments @("commit", "-m", $releaseTitle)
