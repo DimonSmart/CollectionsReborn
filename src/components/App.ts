@@ -1,3 +1,4 @@
+import { BOOKMARK_DRAG_DATA_TYPE } from '../types.js';
 import type {
   BookmarkEntryViewModel,
   FolderInsertPlacement,
@@ -28,6 +29,7 @@ import {
   findNodeById,
   getVirtualRootId,
   getRootFolders,
+  getParentFolderId,
   resolveStartupFolder,
   canNavigateBack,
   buildFolderEntries,
@@ -106,6 +108,7 @@ export class App {
     upBtn.title = 'Go to parent folder';
     upBtn.innerHTML = svgFolderUp();
     upBtn.addEventListener('click', () => this.navigateBack());
+    this.attachMoveToParentDropTarget(upBtn);
 
     const searchInput = document.createElement('input');
     searchInput.type = 'search';
@@ -237,6 +240,52 @@ export class App {
     if (node?.parentId) {
       this.navigateTo(node.parentId);
     }
+  }
+
+  private attachMoveToParentDropTarget(upBtn: HTMLButtonElement): void {
+    const clearDropTarget = (): void => {
+      upBtn.classList.remove('top-folder-up-btn--drop-target');
+    };
+
+    const getDestinationFolderId = (): string | null => {
+      const parentId = getParentFolderId(this.bookmarkTree, this.currentFolderId);
+      if (!parentId) return null;
+      const parent = findNodeById(this.bookmarkTree, parentId);
+      if (!parent || !getBookmarkCapabilities(this.bookmarkTree, parent).canCreateChildren) return null;
+      return parentId;
+    };
+
+    const canDropToParent = (): boolean => getDestinationFolderId() !== null;
+
+    upBtn.addEventListener('dragenter', (e) => {
+      if (!canDropToParent()) return;
+      e.preventDefault();
+      upBtn.classList.add('top-folder-up-btn--drop-target');
+    });
+
+    upBtn.addEventListener('dragover', (e) => {
+      if (!canDropToParent()) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      upBtn.classList.add('top-folder-up-btn--drop-target');
+    });
+
+    upBtn.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget instanceof Node && upBtn.contains(e.relatedTarget)) return;
+      clearDropTarget();
+    });
+
+    upBtn.addEventListener('drop', (e) => {
+      e.preventDefault();
+      clearDropTarget();
+
+      const destinationFolderId = getDestinationFolderId();
+      const itemId = e.dataTransfer?.getData(BOOKMARK_DRAG_DATA_TYPE)
+        || e.dataTransfer?.getData('text/plain');
+      if (!destinationFolderId || !itemId) return;
+
+      void this.moveItemIntoFolder(itemId, destinationFolderId);
+    });
   }
 
   private async editLink(item: LinkEntryViewModel): Promise<void> {

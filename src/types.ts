@@ -1,5 +1,7 @@
 import type { BookmarkCapabilities } from './domain/bookmarkCapabilities.js';
 
+export const BOOKMARK_DRAG_DATA_TYPE = 'application/x-collections-reborn-bookmark-id';
+
 export interface BaseEntryViewModel {
   id: string;
   parentId: string;

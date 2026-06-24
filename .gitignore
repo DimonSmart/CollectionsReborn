@@ -23,6 +23,10 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
+# Local tool state
+.serena/
+.tmp-chrome-dnd-profile/
+
 # Browser extension packaging artifacts
 *.crx
 *.pem
