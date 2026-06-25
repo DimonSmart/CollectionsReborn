@@ -10,6 +10,9 @@ export class StorageService {
       return {
         currentFolderId: typeof saved.currentFolderId === 'string' ? saved.currentFolderId : undefined,
         edgeCollectionsImportPromptShown: saved.edgeCollectionsImportPromptShown === true,
+        edgeCollectionsImportDeclinedAt: typeof saved.edgeCollectionsImportDeclinedAt === 'string'
+          ? saved.edgeCollectionsImportDeclinedAt
+          : undefined,
         lastEdgeCollectionsImportAt: typeof saved.lastEdgeCollectionsImportAt === 'string'
           ? saved.lastEdgeCollectionsImportAt
           : undefined,
@@ -34,6 +37,13 @@ export class StorageService {
 
   async setEdgeCollectionsImportPromptShown(shown: boolean): Promise<void> {
     await this.patchSettings({ edgeCollectionsImportPromptShown: shown });
+  }
+
+  async declineEdgeCollectionsImport(): Promise<void> {
+    await this.patchSettings({
+      edgeCollectionsImportPromptShown: true,
+      edgeCollectionsImportDeclinedAt: new Date().toISOString(),
+    });
   }
 
   async saveEdgeCollectionsImportResult(result: 'success' | 'failed'): Promise<void> {

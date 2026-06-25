@@ -486,8 +486,17 @@ body {
 
 .bing-import__footer-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.bing-import__decline {
+  flex: 1 1 100%;
+  min-width: 0;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
 }
 
 /* ----- Settings ------------------------------------------- */

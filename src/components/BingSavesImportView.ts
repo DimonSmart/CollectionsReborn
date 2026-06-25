@@ -73,6 +73,7 @@ export class BingSavesImportView {
           </label>
         ` : ''}
         <div class="bing-import__footer-actions">
+          ${this.step === 1 ? `<button class="btn btn--secondary bing-import__decline" data-action="decline" ${this.busy ? 'disabled' : ''}>I don’t have old Edge Collections</button>` : ''}
           <button class="btn btn--secondary" data-action="cancel" ${cancelDisabled ? 'disabled' : ''}>Cancel</button>
           ${this.renderPrimaryAction()}
         </div>
@@ -159,6 +160,9 @@ export class BingSavesImportView {
     this.root.querySelector<HTMLButtonElement>('[data-action="import"]')?.addEventListener('click', () => {
       void this.importCollections();
     });
+    this.root.querySelector<HTMLButtonElement>('[data-action="decline"]')?.addEventListener('click', () => {
+      void this.declineImport();
+    });
     this.root.querySelector<HTMLButtonElement>('[data-action="done"]')?.addEventListener('click', () => {
       void this.finish();
     });
@@ -238,6 +242,12 @@ export class BingSavesImportView {
     if (this.step === 3) {
       await this.storage.setEdgeCollectionsImportPromptShown(this.doNotOfferAgain);
     }
+    this.onClose();
+  }
+
+  private async declineImport(): Promise<void> {
+    this.closed = true;
+    await this.storage.declineEdgeCollectionsImport();
     this.onClose();
   }
 

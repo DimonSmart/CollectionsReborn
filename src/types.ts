@@ -63,6 +63,7 @@ export interface FolderViewCallbacks {
 export interface StoredSettings {
   currentFolderId?: string;
   edgeCollectionsImportPromptShown?: boolean;
+  edgeCollectionsImportDeclinedAt?: string;
   lastEdgeCollectionsImportAt?: string;
   lastEdgeCollectionsImportResult?: 'success' | 'failed';
 }
