@@ -30,6 +30,7 @@ import {
   getVirtualRootId,
   getRootFolders,
   getParentFolderId,
+  getFolderPathSegments,
   resolveStartupFolder,
   canNavigateBack,
   buildFolderEntries,
@@ -97,8 +98,6 @@ export class App {
 
     const folderTitle = document.createElement('div');
     folderTitle.className = 'current-folder-title';
-    folderTitle.setAttribute('role', 'heading');
-    folderTitle.setAttribute('aria-level', '1');
 
     const topBar = document.createElement('div');
     topBar.className = 'top-bar';
@@ -244,45 +243,78 @@ export class App {
   }
 
   private attachMoveToParentDropTarget(upBtn: HTMLButtonElement): void {
+    this.attachMoveIntoFolderDropTarget(
+      upBtn,
+      () => getParentFolderId(this.bookmarkTree, this.currentFolderId),
+      'top-folder-up-btn--drop-target',
+    );
+  }
+
+  private attachMoveIntoFolderDropTarget(
+    target: HTMLElement,
+    getDestinationFolderId: () => string | null,
+    activeClassName: string,
+  ): void {
     const clearDropTarget = (): void => {
-      upBtn.classList.remove('top-folder-up-btn--drop-target');
+      target.classList.remove(activeClassName);
     };
 
-    const getDestinationFolderId = (): string | null => {
-      const parentId = getParentFolderId(this.bookmarkTree, this.currentFolderId);
-      if (!parentId) return null;
-      const parent = findNodeById(this.bookmarkTree, parentId);
-      if (!parent || !getBookmarkCapabilities(this.bookmarkTree, parent).canCreateChildren) return null;
-      return parentId;
+    const getDraggedItemId = (event: DragEvent): string => {
+      return event.dataTransfer?.getData(BOOKMARK_DRAG_DATA_TYPE)
+        || event.dataTransfer?.getData('text/plain')
+        || '';
     };
 
-    const canDropToParent = (): boolean => getDestinationFolderId() !== null;
+    const hasSupportedDragData = (event: DragEvent): boolean => {
+      const types = event.dataTransfer?.types;
+      if (!types) return false;
+      return Array.from(types).includes(BOOKMARK_DRAG_DATA_TYPE)
+        || Array.from(types).includes('text/plain');
+    };
 
-    upBtn.addEventListener('dragenter', (e) => {
-      if (!canDropToParent()) return;
+    const getValidDestinationFolderId = (event: DragEvent, requireItemId: boolean): string | null => {
+      const destinationFolderId = getDestinationFolderId();
+      const itemId = getDraggedItemId(event);
+      if (!destinationFolderId || (requireItemId && !itemId)) return null;
+      if (!itemId && !hasSupportedDragData(event)) return null;
+
+      const destination = findNodeById(this.bookmarkTree, destinationFolderId);
+      if (!destination || !getBookmarkCapabilities(this.bookmarkTree, destination).canCreateChildren) return null;
+      if (itemId) {
+        if (itemId === destinationFolderId) return null;
+        if (isDescendantOf(this.bookmarkTree, destinationFolderId, itemId)) return null;
+      }
+
+      return destinationFolderId;
+    };
+
+    target.addEventListener('dragenter', (e) => {
+      if (!getValidDestinationFolderId(e, false)) return;
       e.preventDefault();
-      upBtn.classList.add('top-folder-up-btn--drop-target');
+      target.classList.add(activeClassName);
     });
 
-    upBtn.addEventListener('dragover', (e) => {
-      if (!canDropToParent()) return;
+    target.addEventListener('dragover', (e) => {
+      if (!getValidDestinationFolderId(e, false)) {
+        clearDropTarget();
+        return;
+      }
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-      upBtn.classList.add('top-folder-up-btn--drop-target');
+      target.classList.add(activeClassName);
     });
 
-    upBtn.addEventListener('dragleave', (e) => {
-      if (e.relatedTarget instanceof Node && upBtn.contains(e.relatedTarget)) return;
+    target.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget instanceof Node && target.contains(e.relatedTarget)) return;
       clearDropTarget();
     });
 
-    upBtn.addEventListener('drop', (e) => {
+    target.addEventListener('drop', (e) => {
       e.preventDefault();
       clearDropTarget();
 
-      const destinationFolderId = getDestinationFolderId();
-      const itemId = e.dataTransfer?.getData(BOOKMARK_DRAG_DATA_TYPE)
-        || e.dataTransfer?.getData('text/plain');
+      const destinationFolderId = getValidDestinationFolderId(e, true);
+      const itemId = getDraggedItemId(e);
       if (!destinationFolderId || !itemId) return;
 
       void this.moveItemIntoFolder(itemId, destinationFolderId);
@@ -883,9 +915,53 @@ export class App {
     upBtn.disabled = !canGoUp;
     upBtn.setAttribute('aria-disabled', String(!canGoUp));
 
-    const title = this.displayTitle(currentNode);
-    folderTitle.textContent = title;
-    folderTitle.title = title;
+    this.renderBreadcrumb(folderTitle, currentNode);
+  }
+
+  private renderBreadcrumb(
+    container: HTMLElement,
+    currentNode: chrome.bookmarks.BookmarkTreeNode,
+  ): void {
+    const segments = getFolderPathSegments(this.bookmarkTree, currentNode.id);
+    const visibleSegments = segments.length > 0
+      ? segments
+      : [{ id: currentNode.id, title: this.displayTitle(currentNode) }];
+    const nav = document.createElement('nav');
+    nav.className = 'breadcrumb';
+    nav.setAttribute('aria-label', 'Current folder path');
+
+    visibleSegments.forEach((segment, index) => {
+      if (index > 0) {
+        const separator = document.createElement('span');
+        separator.className = 'breadcrumb__separator';
+        separator.setAttribute('aria-hidden', 'true');
+        separator.textContent = '/';
+        nav.appendChild(separator);
+      }
+
+      const isCurrent = segment.id === currentNode.id;
+      const button = document.createElement('button');
+      button.className = isCurrent
+        ? 'breadcrumb__segment breadcrumb__segment--current'
+        : 'breadcrumb__segment';
+      button.type = 'button';
+      button.textContent = segment.title;
+      button.title = visibleSegments.slice(0, index + 1).map((pathSegment) => pathSegment.title).join(' / ');
+      if (isCurrent) {
+        button.setAttribute('aria-current', 'page');
+      } else {
+        button.addEventListener('click', () => this.navigateTo(segment.id));
+        this.attachMoveIntoFolderDropTarget(
+          button,
+          () => segment.id,
+          'breadcrumb__segment--drop-target',
+        );
+      }
+      nav.appendChild(button);
+    });
+
+    container.replaceChildren(nav);
+    container.title = visibleSegments.map((segment) => segment.title).join(' / ');
   }
 
   private attachBookmarkListeners(): void {

@@ -10,6 +10,7 @@ import {
   searchBookmarkTree,
   collectAllFolders,
   isDescendantOf,
+  getFolderPathSegments,
 } from './bookmarkTree.js';
 import type { FaviconService } from '../services/faviconService.js';
 
@@ -176,6 +177,57 @@ describe('collectAllFolders', () => {
     const work = folders.find((f) => f.id === '12');
     expect(work?.path).toBe('Bookmarks Bar / Work');
     expect(work?.depth).toBe(1);
+  });
+});
+
+describe('getFolderPathSegments', () => {
+  it('returns the virtual root segment with the user-facing title', () => {
+    const tree = makeTree();
+
+    expect(getFolderPathSegments(tree, '0')).toEqual([
+      { id: '0', title: 'All bookmarks' },
+    ]);
+  });
+
+  it('returns the full path to a nested folder', () => {
+    const tree = makeTree();
+
+    expect(getFolderPathSegments(tree, '12')).toEqual([
+      { id: '0', title: 'All bookmarks' },
+      { id: '1', title: 'Bookmarks Bar' },
+      { id: '12', title: 'Work' },
+    ]);
+  });
+
+  it('does not split folder names that contain slashes', () => {
+    const tree = makeTree();
+    const work = findNodeById(tree, '12')!;
+    work.children!.push(folder('121', '12', 'Team / Roadmap'));
+
+    expect(getFolderPathSegments(tree, '121')).toEqual([
+      { id: '0', title: 'All bookmarks' },
+      { id: '1', title: 'Bookmarks Bar' },
+      { id: '12', title: 'Work' },
+      { id: '121', title: 'Team / Roadmap' },
+    ]);
+  });
+
+  it('returns an empty path for an unknown folder id', () => {
+    const tree = makeTree();
+
+    expect(getFolderPathSegments(tree, 'missing')).toEqual([]);
+  });
+
+  it('uses the folder title fallback for empty non-root titles', () => {
+    const tree = makeTree();
+    const bar = findNodeById(tree, '1')!;
+    bar.children!.push(folder('13', '1', ''));
+
+    expect(getFolderPathSegments(tree, '13')).toEqual([
+      { id: '0', title: 'All bookmarks' },
+      { id: '1', title: 'Bookmarks Bar' },
+      { id: '13', title: 'Bookmarks' },
+    ]);
   });
 });
 

@@ -53,6 +53,49 @@ export function getParentFolderId(
   return node?.parentId ?? null;
 }
 
+export interface FolderPathSegment {
+  id: string;
+  title: string;
+}
+
+export function getFolderPathSegments(
+  tree: chrome.bookmarks.BookmarkTreeNode[],
+  folderId: string,
+): FolderPathSegment[] {
+  const segments: FolderPathSegment[] = [];
+
+  const find = (nodes: chrome.bookmarks.BookmarkTreeNode[], target: string): boolean => {
+    for (const node of nodes) {
+      if (node.id === target) {
+        segments.unshift({
+          id: node.id,
+          title: getFolderPathSegmentTitle(tree, node),
+        });
+        return true;
+      }
+      if (node.children && find(node.children, target)) {
+        segments.unshift({
+          id: node.id,
+          title: getFolderPathSegmentTitle(tree, node),
+        });
+        return true;
+      }
+    }
+    return false;
+  };
+
+  find(tree, folderId);
+  return segments;
+}
+
+function getFolderPathSegmentTitle(
+  tree: chrome.bookmarks.BookmarkTreeNode[],
+  node: chrome.bookmarks.BookmarkTreeNode,
+): string {
+  if (node.id === getVirtualRootId(tree)) return 'All bookmarks';
+  return node.title || 'Bookmarks';
+}
+
 export function buildFolderEntries(
   tree: chrome.bookmarks.BookmarkTreeNode[],
   folderNode: chrome.bookmarks.BookmarkTreeNode,
