@@ -1277,11 +1277,6 @@ body {
 .actions-menu__item:disabled:hover { background: transparent; }
 .actions-menu__item--danger:disabled { color: var(--text-muted); }
 
-.bookmark-row--not-draggable .drag-handle {
-  cursor: default;
-  opacity: 0.35;
-}
-
 .actions-menu__separator {
   height: 1px;
   margin: 3px 4px;

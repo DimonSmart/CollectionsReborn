@@ -17,24 +17,21 @@ export function createBookmarkRow(
   }
   li.setAttribute('role', 'listitem');
 
-  const handle = document.createElement('span');
-  handle.className = 'drag-handle';
-  handle.setAttribute('aria-hidden', 'true');
-  handle.title = 'Drag to reorder or move into a folder';
   if (!entry.capabilities.canMove) {
     li.classList.add('bookmark-row--not-draggable');
-    handle.title = 'This item cannot be moved';
   }
-  handle.innerHTML = svgDragHandle();
+  const handle = entry.capabilities.canMove ? buildDragHandle() : null;
 
   const menuBtn = buildMenuBtn(entry, callbacks);
 
   if (entry.type === 'folder') {
     li.tabIndex = 0;
     li.setAttribute('aria-label', `Open folder ${entry.title}, ${formatBookmarkCount(entry.childCount)}`);
-    li.append(handle, buildFolderIcon(), buildInfo(entry), menuBtn);
+    if (handle) li.append(handle);
+    li.append(buildFolderIcon(), buildInfo(entry), menuBtn);
   } else {
-    li.append(handle, buildLinkPreview(entry), buildInfo(entry), menuBtn);
+    if (handle) li.append(handle);
+    li.append(buildLinkPreview(entry), buildInfo(entry), menuBtn);
   }
 
   li.addEventListener('click', (e) => {
@@ -55,6 +52,15 @@ export function createBookmarkRow(
   }
 
   return li;
+}
+
+function buildDragHandle(): HTMLElement {
+  const handle = document.createElement('span');
+  handle.className = 'drag-handle';
+  handle.setAttribute('aria-hidden', 'true');
+  handle.title = 'Drag to reorder or move into a folder';
+  handle.innerHTML = svgDragHandle();
+  return handle;
 }
 
 function buildLinkPreview(entry: LinkEntryViewModel): HTMLElement {
