@@ -10,6 +10,7 @@ export type PreviewErrorCode =
   | 'empty-screenshot'
   | 'quota-exceeded'
   | 'tab-closed'
+  | 'tab-not-active'
   | 'image-processing-failed'
   | 'unknown';
 

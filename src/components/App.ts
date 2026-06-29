@@ -685,12 +685,14 @@ export class App {
       return;
     }
 
-    await this.previewCapture.captureVisibleTabInWindow({
+    const result = await this.previewCapture.captureVisibleTabInWindow({
       bookmarkId: item.id,
       title: item.title,
       url: item.url,
       windowId: tab.windowId,
+      tabId: tab.id,
     });
+    if (result.errorCode === 'tab-not-active') return;
     await this.rebuildParentFolderComposite(item.parentId);
     await this.reloadTree();
   }
@@ -711,6 +713,7 @@ export class App {
         title,
         url,
         windowId,
+        tabId: tab?.id,
       });
       if (!result.ok) console.warn('Preview capture failed:', result.errorCode, result.errorMessage);
       await this.rebuildParentFolderComposite(created.parentId ?? '');
@@ -765,6 +768,7 @@ export class App {
           title: item.title,
           url: item.url,
           windowId: active.windowId,
+          tabId: active.id,
         });
       } else {
         const tab = await this.tabsService.openUrl(item.url);
@@ -776,6 +780,7 @@ export class App {
               title: item.title,
               url: item.url,
               windowId: tab.windowId,
+              tabId: tab.id,
             });
           } else {
             await this.previewDb.saveError({
@@ -1080,6 +1085,8 @@ function getPreviewErrorMessage(errorCode: unknown): string {
       return 'The captured preview was empty.';
     case 'tab-closed':
       return 'The preview tab was closed before capture finished.';
+    case 'tab-not-active':
+      return 'The preview tab is no longer active.';
     case 'unsupported-url':
       return 'Preview can only be generated for http and https pages.';
     default:

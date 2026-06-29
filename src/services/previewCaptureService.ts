@@ -18,6 +18,7 @@ export interface CapturePreviewInput {
 
 export interface CaptureWindowPreviewInput extends CapturePreviewInput {
   windowId: number;
+  tabId?: number;
 }
 
 export interface CreateFolderCompositeInput {
@@ -96,7 +97,7 @@ export class PreviewCaptureService {
     }
   }
 
-  private async captureVisibleTab(input: CapturePreviewInput & { windowId?: number }): Promise<CapturePreviewResult> {
+  private async captureVisibleTab(input: CapturePreviewInput & { windowId?: number; tabId?: number }): Promise<CapturePreviewResult> {
     const previewKey = getLinkPreviewKey(input.bookmarkId);
     const validation = validatePreviewUrl(input.url);
     if (!validation.ok) {
@@ -117,6 +118,12 @@ export class PreviewCaptureService {
         format: settings.imageFormat === 'image/jpeg' ? 'jpeg' : 'png',
         quality: Math.round(settings.imageQuality * 100),
       };
+      if (input.windowId !== undefined && input.tabId !== undefined) {
+        const [activeTab] = await chrome.tabs.query({ active: true, windowId: input.windowId });
+        if (activeTab?.id !== input.tabId) {
+          return { ok: false, previewKey, errorCode: 'tab-not-active' };
+        }
+      }
       const dataUrl = input.windowId === undefined
         ? await chrome.tabs.captureVisibleTab(captureOptions)
         : await chrome.tabs.captureVisibleTab(input.windowId, captureOptions);
