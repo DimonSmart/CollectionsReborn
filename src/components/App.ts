@@ -226,20 +226,35 @@ export class App {
     return 'Bookmarks';
   }
 
-  private navigateTo(folderId: string): void {
+  private navigateTo(folderId: string, revealItemId?: string): void {
     this.currentFolderId = folderId;
     this.searchText = '';
     const searchInput = this.root.querySelector<HTMLInputElement>('.search-input');
     if (searchInput) searchInput.value = '';
     this.render();
+    if (revealItemId) this.revealBookmarkRow(revealItemId);
     this.storageService.saveCurrentFolder(folderId);
   }
 
   private navigateBack(): void {
     const node = findNodeById(this.bookmarkTree, this.currentFolderId);
     if (node?.parentId) {
-      this.navigateTo(node.parentId);
+      const leavingFolderId = node.id;
+      this.navigateTo(node.parentId, leavingFolderId);
     }
+  }
+
+  private revealBookmarkRow(bookmarkId: string): void {
+    const row = this.root.querySelector<HTMLElement>(
+      `.bookmark-row[data-id="${CSS.escape(bookmarkId)}"]`,
+    );
+    if (!row) return;
+
+    const scrollContainer = row.closest<HTMLElement>('.folder-view-container');
+    const previousScrollBehavior = scrollContainer?.style.scrollBehavior ?? '';
+    if (scrollContainer) scrollContainer.style.scrollBehavior = 'auto';
+    row.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+    if (scrollContainer) scrollContainer.style.scrollBehavior = previousScrollBehavior;
   }
 
   private attachMoveToParentDropTarget(upBtn: HTMLButtonElement): void {
