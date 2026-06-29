@@ -140,6 +140,8 @@ export class App {
     const menuBtn = document.createElement('button');
     menuBtn.className = 'btn-icon top-menu-btn';
     menuBtn.setAttribute('aria-label', 'Folder actions');
+    menuBtn.setAttribute('aria-haspopup', 'menu');
+    menuBtn.setAttribute('aria-expanded', 'false');
     menuBtn.title = 'Folder actions';
     menuBtn.innerHTML = svgEllipsis();
     menuBtn.addEventListener('click', (e) => {

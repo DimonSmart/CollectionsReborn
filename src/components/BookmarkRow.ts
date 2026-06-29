@@ -164,6 +164,8 @@ function buildMenuBtn(entry: BookmarkEntryViewModel, callbacks: FolderViewCallba
   const btn = document.createElement('button');
   btn.className = 'action-btn row-menu-btn';
   btn.setAttribute('aria-label', `Actions for ${entry.title}`);
+  btn.setAttribute('aria-haspopup', 'menu');
+  btn.setAttribute('aria-expanded', 'false');
   btn.innerHTML = svgEllipsis();
 
   btn.addEventListener('click', (e) => {

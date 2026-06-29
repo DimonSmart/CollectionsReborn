@@ -13,14 +13,21 @@ export interface MenuSeparatorItem {
 }
 
 let currentMenu: HTMLElement | null = null;
+let currentAnchor: HTMLElement | null = null;
 let outsideHandler: ((e: MouseEvent) => void) | null = null;
 let escHandler: ((e: KeyboardEvent) => void) | null = null;
 
 export function showActionsMenu(anchor: HTMLElement, items: MenuItem[]): void {
+  if (currentMenu && currentAnchor === anchor) {
+    closeActionsMenu();
+    return;
+  }
+
   closeActionsMenu();
 
   const menu = document.createElement('div');
   menu.className = 'actions-menu';
+  menu.setAttribute('role', 'menu');
 
   for (const item of items) {
     if (isSeparatorItem(item)) {
@@ -35,6 +42,7 @@ export function showActionsMenu(anchor: HTMLElement, items: MenuItem[]): void {
     btn.className =
       'actions-menu__item' + (item.variant === 'danger' ? ' actions-menu__item--danger' : '');
     btn.textContent = item.label;
+    btn.setAttribute('role', 'menuitem');
     btn.disabled = item.disabled === true;
     if (item.disabledReason) btn.title = item.disabledReason;
     if (!item.disabled) {
@@ -49,10 +57,18 @@ export function showActionsMenu(anchor: HTMLElement, items: MenuItem[]): void {
 
   document.body.appendChild(menu);
   currentMenu = menu;
+  currentAnchor = anchor;
+  currentAnchor.setAttribute('aria-expanded', 'true');
   positionMenu(menu, anchor);
 
   outsideHandler = (e: MouseEvent) => {
-    if (currentMenu && !currentMenu.contains(e.target as Node)) {
+    const target = e.target as Node;
+    if (
+      currentMenu &&
+      !currentMenu.contains(target) &&
+      currentAnchor &&
+      !currentAnchor.contains(target)
+    ) {
       closeActionsMenu();
     }
   };
@@ -77,6 +93,10 @@ export function closeActionsMenu(): void {
   if (currentMenu) {
     currentMenu.remove();
     currentMenu = null;
+  }
+  if (currentAnchor) {
+    currentAnchor.setAttribute('aria-expanded', 'false');
+    currentAnchor = null;
   }
   if (outsideHandler) {
     document.removeEventListener('click', outsideHandler, true);
